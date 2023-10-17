@@ -10,31 +10,27 @@
 // 
 
 module usb_hid_host (
-    input  usbclk,		            // 12MHz clock
-    input  usbrst_n,	            // reset
-    inout  usb_dm, usb_dp,          // USB D- and D+
-
-    output reg [1:0] typ,           // device type. 0: no device, 1: keyboard, 2: mouse, 3: gamepad
-    output reg report,              // pulse after report received from device. 
-                                    // key_*, mouse_*, game_* valid depending on typ
-    output conerr,                  // connection or protocol error
-
-    // keyboard
-    output reg [7:0] key_modifiers,
-    output reg [7:0] key1, key2, key3, key4,
-
-    // mouse
-    output reg [7:0] mouse_btn,     // {5'bx, middle, right, left}
-    output reg signed [7:0] mouse_dx,      // signed 8-bit, cleared after `report` pulse
-    output reg signed [7:0] mouse_dy,      // signed 8-bit, cleared after `report` pulse
-
-    // gamepad 
-    output reg game_l, game_r, game_u, game_d,  // left right up down
-    output reg game_a, game_b, game_x, game_y, game_sel, game_sta,  // buttons
-
-    // debug
-    output [63:0] dbg_hid_report	// last HID report
-);
+                        input  usbclk,		            // 12MHz clock
+                        input  usbrst_n,	            // reset
+                        inout  usb_dm, usb_dp,          // USB D- and D+
+                        // Output
+                        output reg [1:0] typ,           // device type. 0: no device, 1: keyboard, 2: mouse, 3: gamepad
+                        output reg report,              // pulse after report received from device. 
+                                                        // key_*, mouse_*, game_* valid depending on typ
+                        output conerr,                  // connection or protocol error
+                        // Output: keyboard
+                        output reg [7:0] key_modifiers,
+                        output reg [7:0] key1, key2, key3, key4,
+                        // Output: mouse
+                        output reg [7:0] mouse_btn,     // {5'bx, middle, right, left}
+                        output reg signed [7:0] mouse_dx,      // signed 8-bit, cleared after `report` pulse
+                        output reg signed [7:0] mouse_dy,      // signed 8-bit, cleared after `report` pulse
+                        // Output: gamepad 
+                        output reg game_l, game_r, game_u, game_d,  // left right up down
+                        output reg game_a, game_b, game_x, game_y, game_sel, game_sta,  // buttons
+                        // Output: debug
+                        output [63:0] dbg_hid_report	// last HID report
+                    );
 
 wire data_rdy;          // data ready
 wire data_strobe;       // data strobe for each byte

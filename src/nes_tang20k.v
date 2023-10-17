@@ -382,28 +382,68 @@ Autofire af_triangle2 (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx2[1][4] | usb
 wire [1:0] usb_type, usb_type2;
 wire usb_report, usb_report2;
 usb_hid_host usb_controller (
-    .usbclk(clk_usb), .usbrst_n(sys_resetn),
-    .usb_dm(usbdm), .usb_dp(usbdp),	.typ(usb_type), .report(usb_report), 
-    .game_l(usb_btn[6]), .game_r(usb_btn[7]), .game_u(usb_btn[4]), .game_d(usb_btn[5]), 
-    .game_a(usb_btn[0]), .game_b(usb_btn[1]), .game_x(usb_btn_x), .game_y(usb_btn_y), 
-    .game_sel(usb_btn[2]), .game_sta(usb_btn[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
-    .mouse_btn(), .mouse_dx(), .mouse_dy(),
-    .dbg_hid_report()
-);
+                                // Input
+                                .usbclk(clk_usb), 
+                                .usbrst_n(sys_resetn),
+                                // Inout
+                                .usb_dm(usbdm), 
+                                .usb_dp(usbdp),	
+                                // Output
+                                .typ(usb_type), 
+                                .report(usb_report), 
+                                .game_l(usb_btn[6]), 
+                                .game_r(usb_btn[7]), 
+                                .game_u(usb_btn[4]), 
+                                .game_d(usb_btn[5]), 
+                                .game_a(usb_btn[0]), 
+                                .game_b(usb_btn[1]), 
+                                .game_x(usb_btn_x), 
+                                .game_y(usb_btn_y), 
+                                .game_sel(usb_btn[2]), 
+                                .game_sta(usb_btn[3]),
+                                // ignore keyboard and mouse input
+                                .key_modifiers(), 
+                                .key1(), 
+                                .key2(), 
+                                .key3(), 
+                                .key4(),
+                                .mouse_btn(), 
+                                .mouse_dx(), 
+                                .mouse_dy(),
+                                .dbg_hid_report()
+                            );
 
 usb_hid_host usb_controller2 (
-    .usbclk(clk_usb), .usbrst_n(sys_resetn),
-    .usb_dm(usbdm2), .usb_dp(usbdp2),	.typ(usb_type2), .report(usb_report2), 
-    .game_l(usb_btn2[6]), .game_r(usb_btn2[7]), .game_u(usb_btn2[4]), .game_d(usb_btn2[5]), 
-    .game_a(usb_btn2[0]), .game_b(usb_btn2[1]), .game_x(usb_btn_x2), .game_y(usb_btn_y2), 
-    .game_sel(usb_btn2[2]), .game_sta(usb_btn2[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
-    .mouse_btn(), .mouse_dx(), .mouse_dy(),
-    .dbg_hid_report()
-);
+                                // Input
+                                .usbclk(clk_usb), 
+                                .usbrst_n(sys_resetn),
+                                // Inout
+                                .usb_dm(usbdm2), 
+                                .usb_dp(usbdp2),
+                                // Output
+                                .typ(usb_type2), 
+                                .report(usb_report2), 
+                                .game_l(usb_btn2[6]), 
+                                .game_r(usb_btn2[7]), 
+                                .game_u(usb_btn2[4]), 
+                                .game_d(usb_btn2[5]), 
+                                .game_a(usb_btn2[0]), 
+                                .game_b(usb_btn2[1]), 
+                                .game_x(usb_btn_x2), 
+                                .game_y(usb_btn_y2), 
+                                .game_sel(usb_btn2[2]), 
+                                .game_sta(usb_btn2[3]),
+                                // ignore keyboard and mouse input
+                                .key_modifiers(), 
+                                .key1(),
+                                .key2(), 
+                                .key3(), 
+                                .key4(),
+                                .mouse_btn(), 
+                                .mouse_dx(), 
+                                .mouse_dy(),
+                                .dbg_hid_report()
+                            );
 
 //
 // Print control
