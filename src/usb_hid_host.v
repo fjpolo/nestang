@@ -17,7 +17,7 @@ module usb_hid_host (
                         output reg [1:0] typ,           // device type. 0: no device, 1: keyboard, 2: mouse, 3: gamepad
                         output reg report,              // pulse after report received from device. 
                                                         // key_*, mouse_*, game_* valid depending on typ
-                        output conerr,                  // connection or protocol error
+                        output con_err,                  // connection or protocol error
                         // Output: keyboard
                         output reg [7:0] key_modifiers,
                         output reg [7:0] key1, key2, key3, key4,
@@ -45,7 +45,7 @@ ukp ukp(
     .usbrst_n(usbrst_n), .usbclk(usbclk),
     .usb_dp(usb_dp), .usb_dm(usb_dm), .usb_oe(),
     .ukprdy(data_rdy), .ukpstb(data_strobe), .ukpdat(ukpdat), .save(save), .save_r(save_r), .save_b(save_b),
-    .connected(connected), .conerr(conerr));
+    .connected(connected), .con_err(con_err));
 
 reg  [3:0] rcvct;		// counter for recv data
 reg  data_strobe_r, data_rdy_r;	// delayed data_strobe and data_rdy
@@ -184,7 +184,7 @@ module ukp(
     output reg save,			// save: regs[save_r] <= dat[save_b]
     output reg [3:0] save_r, save_b,
     output reg connected,
-    output conerr
+    output con_err
 );
 
     parameter S_OPCODE = 0;
@@ -232,7 +232,7 @@ module ukp(
     wire record;
     reg  dmid;
     reg [23:0] conct;
-    assign conerr = conct[23]; // || ~usbrst_n;
+    assign con_err = conct[23]; // || ~usbrst_n;
 
     usb_hid_host_rom ukprom(.clk(usbclk), .adr(pc), .data(inst));
 
