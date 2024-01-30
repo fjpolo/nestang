@@ -190,13 +190,20 @@ module NES(
   reg nmi_active_rewind;
 
   always @(posedge clk) begin
-    if (reset)
+    if (reset) begin
       nmi_active <= 0;
-    else if (ce && cpu_cycle_counter == 0)
-      nmi_active <= nmi;
+    end else begin
+        if (i_rewind_enable) begin
+            nmi_active <= nmi_active_rewind;
+        end else begin
+            if (ce && cpu_cycle_counter == 0) begin
+                nmi_active <= nmi;
+            end
+        end
+    end
   end
 
-  wire apu_ce =        ce && (cpu_cycle_counter == 2);
+  wire apu_ce = ce && (cpu_cycle_counter == 2);
 
   // -- CPU
   wire [15:0] cpu_addr;
@@ -219,7 +226,10 @@ module NES(
             cpu_dout,
             cpu_addr,
             cpu_mr,
-            cpu_mw
+            cpu_mw,
+            // Rewind
+            rewind_time_to_save,
+            i_rewind_enable
          );
 
   // -- DMA
@@ -370,17 +380,23 @@ module NES(
     mapper_irq_delayed <= 0;
     apu_irq_delayed <= 0;
   end else begin
-    if (ce)
-      mapper_irq_delayed <= mapper_irq;
-    if (apu_ce)
-      apu_irq_delayed <= apu_irq;
-    if (ce | apu_ce) begin
-      case ({int_audio, ext_audio})
-      0: sample_sum <= 17'b0;
-      1: sample_sum <= {1'b0,sample_ext};
-      2: sample_sum <= {1'b0,sample_apu};
-      3: sample_sum <= {1'b0,sample_ext} + {1'b0,sample_apu};
-      endcase
+    if(i_rewind_enable) begin
+        apu_irq_delayed <= apu_irq_delayed_rewind;
+        mapper_irq_delayed <= mapper_irq_delayed_rewind;
+        sample_sum <= sample_sum_rewind;
+    end else begin
+        if (ce)
+          mapper_irq_delayed <= mapper_irq;
+        if (apu_ce)
+          apu_irq_delayed <= apu_irq;
+        if (ce | apu_ce) begin
+          case ({int_audio, ext_audio})
+          0: sample_sum <= 17'b0;
+          1: sample_sum <= {1'b0,sample_ext};
+          2: sample_sum <= {1'b0,sample_apu};
+          3: sample_sum <= {1'b0,sample_ext} + {1'b0,sample_apu};
+          endcase
+        end
     end
   end
    
@@ -421,11 +437,15 @@ module NES(
   end
 
 
-  // Rewind
+  // Rewind: Save state
   reg[27:0] rewind_clk_counter;
+  wire rewind_time_to_save;
   parameter TANG_CPU_CLOCK_NTSC = 27_000_000;   // [Hz]
   parameter NES_CPU_CLOCK_NTSC = 1_789_773;     // [Hz]
-  parameter REWIND_CLOCK_COUNT_5S = TANG_CPU_CLOCK_NTSC * 5;    // 135_000_000 [Hz] 
+  parameter REWIND_CLOCK_COUNT_5S = TANG_CPU_CLOCK_NTSC * 5;    // 135_000_000 [Hz]
+
+  assign rewind_time_to_save = (rewind_clk_counter == TANG_CPU_CLOCK_NTSC);
+
   always @(posedge clk) begin
     if(reset) begin
         rewind_clk_counter <= 0;
@@ -445,14 +465,6 @@ module NES(
             rewind_clk_counter <= rewind_clk_counter + 1;
         end
     end
-  end
-  // Rewind: Select+Left was hit
-  always @(posedge i_rewind_enable) begin
-    // Restore previous saved state
-    nmi_active = nmi_active_rewind;
-    apu_irq_delayed <= apu_irq_delayed_rewind;
-    mapper_irq_delayed <= mapper_irq_delayed_rewind;
-    sample_sum <= sample_sum_rewind;
   end
 
   
