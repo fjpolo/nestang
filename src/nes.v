@@ -62,6 +62,12 @@ module DmaController(input clk, input ce, input reset,
   reg [7:0] sprite_dma_lastval;
   reg [15:0] sprite_dma_addr;     // sprite dma source addr
   wire [8:0] new_sprite_dma_addr = sprite_dma_addr[7:0] + 8'h01;
+  // Rewind
+  reg dmc_state_rewind;
+  reg [1:0] spr_state_rewind;
+  reg [7:0] sprite_dma_lastval_rewind;
+  reg [15:0] sprite_dma_addr_rewind;
+
   always @(posedge clk) if (reset) begin
     dmc_state <= 0;
     spr_state <= 0;    
@@ -120,38 +126,41 @@ module MemoryMultiplex(input clk, input ce,
 endmodule
 
 
-module NES(input clk, input reset, input ce,
-           input [31:0] mapper_flags,
-           output [15:0] sample, // sample generated from APU
-           output [5:0] color /*verilator public*/,  // pixel generated from PPU
-           output joypad_strobe,// Set to 1 to strobe joypads. Then set to zero to keep the value.
-           output [1:0] joypad_clock, // Set to 1 for each joypad to clock it.
-           input [1:0] joypad_data, // Data for each joypad.
-           input [4:0] audio_channels, // Enabled audio channels
+module NES(
+            input clk, 
+            input reset, 
+            input ce,
+            input [31:0] mapper_flags,
+            output [15:0] sample,               // sample generated from APU
+            output [5:0] color                  /*verilator public*/,  // pixel generated from PPU
+            output joypad_strobe,               // Set to 1 to strobe joypads. Then set to zero to keep the value.
+            output [1:0] joypad_clock,          // Set to 1 for each joypad to clock it.
+            input [1:0] joypad_data,            // Data for each joypad.
+            input [4:0] audio_channels,         // Enabled audio channels
 
-           
-           // Access signals for the SRAM.
-           output [21:0] memory_addr,   // address to access
-           output memory_read_cpu,      // read into CPU latch
-           input [7:0] memory_din_cpu,  // next cycle, contents of latch A (CPU's data)
-           output memory_read_ppu,      // read into CPU latch
-           input [7:0] memory_din_ppu,  // next cycle, contents of latch B (PPU's data)
-           output memory_write,         // is a write operation
-           output [7:0] memory_dout,
-           
-           output [8:0] cycle           /*verilator public*/,
-           output [8:0] scanline,       /*verilator public*/
+                       
+            // Access signals for the SRAM.
+            output [21:0] memory_addr,          // address to access
+            output memory_read_cpu,             // read into CPU latch
+            input [7:0] memory_din_cpu,         // next cycle, contents of latch A (CPU's data)
+            output memory_read_ppu,             // read into CPU latch
+            input [7:0] memory_din_ppu,         // next cycle, contents of latch B (PPU's data)
+            output memory_write,                // is a write operation
+            output [7:0] memory_dout,
+                       
+            output [8:0] cycle                  /*verilator public*/,
+            output [8:0] scanline,              /*verilator public*/
 
-           // VRC6
-           input int_audio,
-           input ext_audio,
+            // VRC6
+            input int_audio,
+            input ext_audio,
 
             // Rewind
-            input i_rewind_ce
-           
-//           output reg [31:0] dbgadr,
-//           output [1:0] dbgctr
-           );
+            input i_rewind_enable
+                       
+            // output reg [31:0] dbgadr,
+            // output [1:0] dbgctr
+          );
   reg [7:0] from_data_bus;
   wire [7:0] cpu_dout;
   wire odd_or_even; // Is this an odd or even clock cycle?
@@ -160,6 +169,11 @@ module NES(input clk, input reset, input ce,
   // CPU is clocked at cycle #2. PPU is clocked at cycle #0, #1, #2.
   // CPU does its memory I/O on cycle #0. It will be available in time for cycle #2.
   reg [1:0] cpu_cycle_counter;
+
+  // Rewind
+  reg [7:0] from_data_bus_rewind;
+  reg [1:0] cpu_cycle_counter;
+
   always @(posedge clk) begin
     if (reset)
       cpu_cycle_counter <= 0;
@@ -171,6 +185,10 @@ module NES(input clk, input reset, input ce,
   // the CPU will use it even though it shouldn't be used until the next CPU cycle.
   wire nmi;
   reg nmi_active;
+
+  // Rewind
+  reg nmi_active_rewind;
+
   always @(posedge clk) begin
     if (reset)
       nmi_active <= 0;
@@ -186,6 +204,11 @@ module NES(input clk, input reset, input ce,
   wire pause_cpu;
   reg apu_irq_delayed;
   reg mapper_irq_delayed;
+
+  // Rewind
+  reg apu_irq_delayed_rewind;
+  reg mapper_irq_delayed_rewind;
+
   CPU cpu(
             clk,
             apu_ce && !pause_cpu,
@@ -237,6 +260,7 @@ module NES(input clk, input reset, input ce,
   wire [7:0] apu_dout;
   wire apu_irq;
   wire [15:0] sample_apu;
+
   APU apu(
           clk,
           apu_ce,
@@ -272,6 +296,7 @@ module NES(input clk, input reset, input ce,
   wire [7:0] chr_from_ppu;       // Data from PPU to VRAM
   wire [7:0] chr_to_ppu;
   wire [19:0] mapper_ppu_flags;  // PPU flags for mapper cheating
+
   PPU ppu(
             clk,
             ce,
@@ -307,6 +332,10 @@ module NES(input clk, input reset, input ce,
   wire [15:0] sample_ext;
   reg [16:0] sample_sum;
   assign sample = sample_sum[16:1]; //loss of 1 bit of resolution.  Add control for when no external audio to boost back up?
+  
+  // Rewind
+  reg [16:0] sample_sum_rewind;
+
   MultiMapper multi_mapper(
                             clk,
                             cart_ce,
@@ -390,5 +419,41 @@ module NES(input clk, input reset, input ce,
       from_data_bus = prg_dout_mapper;
     end
   end
+
+
+  // Rewind
+  reg[27:0] rewind_clk_counter;
+  parameter TANG_CPU_CLOCK_NTSC = 27_000_000;   // [Hz]
+  parameter NES_CPU_CLOCK_NTSC = 1_789_773;     // [Hz]
+  parameter REWIND_CLOCK_COUNT_5S = TANG_CPU_CLOCK_NTSC * 5;    // 135_000_000 [Hz] 
+  always @(posedge clk) begin
+    if(reset) begin
+        rewind_clk_counter <= 0;
+        nmi_active_rewind = 0;
+        apu_irq_delayed_rewind <= 0;
+        mapper_irq_delayed_rewind <= 0;
+        sample_sum_rewind <= 0;
+    end else begin
+        if(rewind_clk_counter == REWIND_CLOCK_COUNT_5S) begin
+            rewind_clk_counter <= 0;
+            // Save state
+            nmi_active_rewind = nmi_active;
+            apu_irq_delayed_rewind <= apu_irq_delayed;
+            mapper_irq_delayed_rewind <= mapper_irq_delayed;
+            sample_sum_rewind <= sample_sum;
+        end else begin
+            rewind_clk_counter <= rewind_clk_counter + 1;
+        end
+    end
+  end
+  // Rewind: Select+Left was hit
+  always @(posedge i_rewind_enable) begin
+    // Restore previous saved state
+    nmi_active = nmi_active_rewind;
+    apu_irq_delayed <= apu_irq_delayed_rewind;
+    mapper_irq_delayed <= mapper_irq_delayed_rewind;
+    sample_sum <= sample_sum_rewind;
+  end
+
   
 endmodule

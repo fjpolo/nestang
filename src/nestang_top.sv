@@ -336,6 +336,10 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   assign NES_int_audio = 1;
   assign NES_ext_audio = (mapper_flags[7:0] == 19) | (mapper_flags[7:0] == 24) | (mapper_flags[7:0] == 26) | (mapper_flags[7:0] == 69);
 
+  // Rewind
+  wire NES_rewind_enable;
+  assign NES_rewind_enable = 0; // = (nes_btn[2] & nes_btn[6]) // Select+Left
+
   // Main NES machine
   NES nes(
             clk,
@@ -359,7 +363,9 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
             cycle, scanline,
             // VRC6
             NES_int_audio,
-            NES_ext_audio
+            NES_ext_audio,
+            // Rewind
+            NES_rewind_enable
          );
 
 /*verilator tracing_off*/
