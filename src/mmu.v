@@ -1217,7 +1217,14 @@ module Mapper68(input clk, input ce, input reset,
 endmodule
 
 
-
+//
+// Sunsoft5B
+//
+// References:
+//
+// - https://www.nesdev.org/wiki/Sunsoft_5B_audio
+// - https://github.com/MiSTer-devel/NES_MiSTer/pull/6/files
+//
 // 69 - Sunsoft FME-7
 module Mapper69(input clk, input ce, input reset,
                 input [31:0] flags,
@@ -1229,7 +1236,9 @@ module Mapper69(input clk, input ce, input reset,
                 output chr_allow,                             // Allow write
                 output reg vram_a10,                          // Value for A10 address line
                 output vram_ce,                               // True if the address should be routed to the internal 2kB VRAM.
-                output reg irq);
+                output reg irq,
+                output reg [15:0] audio
+                );
   reg [7:0] chr_bank[0:7];
   reg [4:0] prg_bank[0:3];
   reg [1:0] mirroring;
@@ -1308,6 +1317,21 @@ module Mapper69(input clk, input ce, input reset,
   assign chr_allow = flags[15];
   assign chr_aout = {4'b10_00, chrout, chr_ain[9:0]};
   assign vram_ce = chr_ain[13];
+
+  //Taken from Loopy's Power Pak mapper source
+  //audio
+  wire [6:0] fme7_out;
+  FME7_sound snd0(clk, ce, reset, prg_write, prg_ain, prg_din, fme7_out);
+  //FME7_sound snd0(m2, reset, nesprg_we, prgain, nesprgdin, fme7_out);
+  //pdm #(7) pdm_mod(clk20, fme7_out, exp6);
+
+  //Need a better lookup table for this
+  //This is just the NES APU lookup table, which is designed for 2 4-bit square waves, not 3
+  ApuLookupTable lookup(clk, 
+                        {4'b0, fme7_out[5:1]}, //fme7_out range: 0-2D
+                        {8'b0},                //No triange, noise or DMC
+                        audio);
+
 endmodule
 
 // #71,#232 - Camerica
@@ -1780,7 +1804,7 @@ module MultiMapper(
   wire map69_prg_allow, map69_vram_a10, map69_vram_ce, map69_chr_allow, map69_irq;
   wire [21:0] map69_prg_addr, map69_chr_addr;
   Mapper69 map69(clk, ce, reset, flags, prg_ain, map69_prg_addr, prg_read, prg_write, prg_din, map69_prg_allow,
-                                        chr_ain, map69_chr_addr, map69_chr_allow, map69_vram_a10, map69_vram_ce, map69_irq);
+                                        chr_ain, map69_chr_addr, map69_chr_allow, map69_vram_a10, map69_vram_ce, map69_irq, map69_audio);
 
   wire map71_prg_allow, map71_vram_a10, map71_vram_ce, map71_chr_allow;
   wire [21:0] map71_prg_addr, map71_chr_addr;
@@ -1876,7 +1900,7 @@ module MultiMapper(
     11,
     66: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map66_prg_addr, map66_prg_allow, map66_chr_addr, map66_vram_a10, map66_vram_ce, map66_chr_allow};
     68: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map68_prg_addr, map68_prg_allow, map68_chr_addr, map68_vram_a10, map68_vram_ce, map68_chr_allow};
-    69: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {map69_prg_addr, map69_prg_allow, map69_chr_addr, map69_vram_a10, map69_vram_ce, map69_chr_allow, map69_irq};
+    69: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {map69_prg_addr, map69_prg_allow, map69_chr_addr, map69_vram_a10, map69_vram_ce, map69_chr_allow, map69_irq, map69_audio};
 
     71,
     232: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map71_prg_addr, map71_prg_allow, map71_chr_addr, map71_vram_a10, map71_vram_ce, map71_chr_allow};
