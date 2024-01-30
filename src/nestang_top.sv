@@ -218,23 +218,23 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
 
   NESGamepad nes_gamepad(
-		.i_clk(clk),
-        .i_rst(sys_resetn),
-		.o_data_clock(NES_gamepad_data_clock),
-		.o_data_latch(NES_gampepad_data_latch),
-		.i_serial_data(NES_gampead_serial_data),
-		.o_button_state(NES_gamepad_button_state),
-        .o_data_available(NES_gamepad_data_available)
+                            .i_clk(clk),
+                            .i_rst(sys_resetn),
+                            .o_data_clock(NES_gamepad_data_clock),
+                            .o_data_latch(NES_gampepad_data_latch),
+                            .i_serial_data(NES_gampead_serial_data),
+                            .o_button_state(NES_gamepad_button_state),
+                            .o_data_available(NES_gamepad_data_available)
                         );
 
   NESGamepad nes_gamepad2(
-		.i_clk(clk),
-        .i_rst(sys_resetn),
-		.o_data_clock(NES_gamepad_data_clock2),
-		.o_data_latch(NES_gampepad_data_latch2),
-		.i_serial_data(NES_gampead_serial_data2),
-		.o_button_state(NES_gamepad_button_state2),
-        .o_data_available(NES_gamepad_data_available2)
+                            .i_clk(clk),
+                            .i_rst(sys_resetn),
+                            .o_data_clock(NES_gamepad_data_clock2),
+                            .o_data_latch(NES_gampepad_data_latch2),
+                            .i_serial_data(NES_gampead_serial_data2),
+                            .o_button_state(NES_gamepad_button_state2),
+                            .o_data_available(NES_gamepad_data_available2)
                         );
 
   // Joypad handling
@@ -258,10 +258,20 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
   // Parses ROM data and store them for MemoryController to access
   GameLoader loader(
-        .clk(clk), .reset(loader_reset), .indata(loader_input), .indata_clk(loader_clk),
-        .mem_addr(loader_addr), .mem_data(loader_write_data), .mem_write(loader_write),
-        .mem_refresh(loader_refresh), .mapper_flags(mapper_flags), 
-        .done(loader_done), .error(loader_fail), .loader_state(), .loader_bytes_left());
+                        .clk(clk),
+                        .reset(loader_reset),
+                        .indata(loader_input),
+                        .indata_clk(loader_clk),
+                        .mem_addr(loader_addr),
+                        .mem_data(loader_write_data),
+                        .mem_write(loader_write),
+                        .mem_refresh(loader_refresh),
+                        .mapper_flags(mapper_flags), 
+                        .done(loader_done),
+                        .error(loader_fail),
+                        .loader_state(),
+                        .loader_bytes_left()
+                    );
 
   // The NES machine
   // nes_ce  / 0 \___/ 1 \___/ 2 \___/ 3 \___/ 4 \___/ 0 \___
@@ -328,39 +338,60 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
   // Main NES machine
   NES nes(
-          clk, reset_nes, run_nes,
-          mapper_flags,
-          sample, color,
-          joypad_strobe, joypad_clock, {joypad_bits2[0], joypad_bits[0]},
-          SW[4:0],
-          memory_addr,
-          memory_read_cpu, memory_din_cpu,
-          memory_read_ppu, memory_din_ppu,
-          memory_write, memory_dout,
-          cycle, scanline,
-          // VRC6
-          NES_int_audio,
-          NES_ext_audio
-        );
+            clk,
+            reset_nes,
+            run_nes,
+            mapper_flags,
+            sample,
+            color,
+            joypad_strobe,
+            joypad_clock,
+            {joypad_bits2[0],
+            joypad_bits[0]},
+            SW[4:0],
+            memory_addr,
+            memory_read_cpu,
+            memory_din_cpu,
+            memory_read_ppu,
+            memory_din_ppu,
+            memory_write,
+            memory_dout,
+            cycle, scanline,
+            // VRC6
+            NES_int_audio,
+            NES_ext_audio
+         );
 
 /*verilator tracing_off*/
   // Combine RAM and ROM data to a single address space for NES to access
   wire ram_busy, ram_fail;
   wire [19:0] ram_total_written;
-  MemoryController memory(.clk(clk), .clk_sdram(clk_sdram), .resetn(sys_resetn),
-        .read_a(memory_read_cpu && run_mem), 
-        .read_b(memory_read_ppu && run_mem),
-        .write(memory_write && run_mem || loader_write),
-        .refresh((~memory_read_cpu && ~memory_read_ppu && ~memory_write && ~loader_write) && run_mem || nes_ce == 4'd7 || (loader_refresh && ~loader_write)),
-        .addr(loader_write ? loader_addr : memory_addr),
-        .din(loader_write ? loader_write_data : memory_dout),
-        .dout_a(memory_din_cpu), .dout_b(memory_din_ppu),
-        .busy(ram_busy), .fail(ram_fail), .total_written(ram_total_written),
+  MemoryController memory(
+                            .clk(clk), .clk_sdram(clk_sdram),
+                            .resetn(sys_resetn),
+                            .read_a(memory_read_cpu && run_mem), 
+                            .read_b(memory_read_ppu && run_mem),
+                            .write(memory_write && run_mem || loader_write),
+                            .refresh((~memory_read_cpu && ~memory_read_ppu && ~memory_write && ~loader_write) && run_mem || nes_ce == 4'd7 || (loader_refresh && ~loader_write)),
+                            .addr(loader_write ? loader_addr : memory_addr),
+                            .din(loader_write ? loader_write_data : memory_dout),
+                            .dout_a(memory_din_cpu),
+                            .dout_b(memory_din_ppu),
+                            .busy(ram_busy),
+                            .fail(ram_fail),
+                            .total_written(ram_total_written),
 
-        .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), .SDRAM_nCS(O_sdram_cs_n),
-        .SDRAM_nWE(O_sdram_wen_n), .SDRAM_nRAS(O_sdram_ras_n), .SDRAM_nCAS(O_sdram_cas_n), 
-        .SDRAM_CLK(O_sdram_clk), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm)
-);
+                            .SDRAM_DQ(IO_sdram_dq),
+                            .SDRAM_A(O_sdram_addr),
+                            .SDRAM_BA(O_sdram_ba),
+                            .SDRAM_nCS(O_sdram_cs_n),
+                            .SDRAM_nWE(O_sdram_wen_n),
+                            .SDRAM_nRAS(O_sdram_ras_n),
+                            .SDRAM_nCAS(O_sdram_cas_n), 
+                            .SDRAM_CLK(O_sdram_clk),
+                            .SDRAM_CKE(O_sdram_cke),
+                            .SDRAM_DQM(O_sdram_dqm)
+                         );
 /*verilator tracing_on*/
 
 `ifndef VERILATOR
@@ -371,50 +402,81 @@ wire [7:0] menu_scanline, menu_cycle;
 
 // HDMI output
 nes2hdmi u_hdmi (
-    .clk(clk), .resetn(sys_resetn),
-    .color(menu_overlay ? menu_color : color), .cycle(menu_overlay ? menu_cycle : cycle), 
-    .scanline(menu_overlay ? menu_scanline : scanline), .sample(sample >> 1),
-    .clk_pixel(clk_p), .clk_5x_pixel(clk_p5), .locked(pll_lock),
-    .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
-    .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
-);
+                    .clk(clk),
+                    .resetn(sys_resetn),
+                    .color(menu_overlay ? menu_color : color),
+                    .cycle(menu_overlay ? menu_cycle : cycle), 
+                    .scanline(menu_overlay ? menu_scanline : scanline),
+                    .sample(sample >> 1),
+                    .clk_pixel(clk_p),
+                    .clk_5x_pixel(clk_p5),
+                    .locked(pll_lock),
+                    .tmds_clk_n(tmds_clk_n),
+                    .tmds_clk_p(tmds_clk_p),
+                    .tmds_d_n(tmds_d_n),
+                    .tmds_d_p(tmds_d_p)
+                );
 
 reg [7:0] sd_debug_reg;
 wire [7:0] sd_debug_out;
 
 SDLoader #(.FREQ(FREQ)) sd_loader (
-    .clk(clk), .resetn(sys_resetn),
-    .overlay(menu_overlay), .color(menu_color), .scanline(menu_scanline),
-    .cycle(menu_cycle),
-    .nes_btn(loader_btn | nes_btn | loader_btn_2 | nes_btn2), 
-    .dout(sd_dout), .dout_valid(sd_dout_valid),
-    .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
-    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3),
+                                    .clk(clk),
+                                    .resetn(sys_resetn),
+                                    .overlay(menu_overlay),
+                                    .color(menu_color),
+                                    .scanline(menu_scanline),
+                                    .cycle(menu_cycle),
+                                    .nes_btn(loader_btn | nes_btn | loader_btn_2 | nes_btn2), 
+                                    .dout(sd_dout),
+                                    .dout_valid(sd_dout_valid),
+                                    .sd_clk(sd_clk),
+                                    .sd_cmd(sd_cmd),
+                                    .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
+                                    .sd_dat2(sd_dat2),
+                                    .sd_dat3(sd_dat3),
 
-    .debug_reg(sd_debug_reg), .debug_out(sd_debug_out)
-);
+                                    .debug_reg(sd_debug_reg),
+                                    .debug_out(sd_debug_out)
+                                  );
 
 // Dualshock controller
 dualshock_controller controller (
-    .clk(clk), .I_RSTn(1'b1),
-    .O_psCLK(joystick_clk), .O_psSEL(joystick_cs), .O_psTXD(joystick_mosi),
-    .I_psRXD(joystick_miso),
-    .O_RXD_1(joy_rx[0]), .O_RXD_2(joy_rx[1]), .O_RXD_3(),
-    .O_RXD_4(), .O_RXD_5(), .O_RXD_6(),
-    // config=1, mode=1(analog), mode_en=1
-    .I_CONF_SW(1'b0), .I_MODE_SW(1'b1), .I_MODE_EN(1'b0),
-    .I_VIB_SW(2'b00)     // no vibration
-);
+                                    .clk(clk),
+                                    .I_RSTn(1'b1),
+                                    .O_psCLK(joystick_clk),
+                                    .O_psSEL(joystick_cs),
+                                    .O_psTXD(joystick_mosi),
+                                    .I_psRXD(joystick_miso),
+                                    .O_RXD_1(joy_rx[0]),
+                                    .O_RXD_2(joy_rx[1]),
+                                    .O_RXD_3(),
+                                    .O_RXD_4(),
+                                    .O_RXD_5(),
+                                    .O_RXD_6(),
+                                    // config=1, mode=1(analog), mode_en=1
+                                    .I_CONF_SW(1'b0),
+                                    .I_MODE_SW(1'b1), .I_MODE_EN(1'b0),
+                                    .I_VIB_SW(2'b00)     // no vibration
+                                );
 
 dualshock_controller controller2 (
-    .clk(clk), .I_RSTn(1'b1),
-    .O_psCLK(joystick_clk2), .O_psSEL(joystick_cs2), .O_psTXD(joystick_mosi2),
-    .I_psRXD(joystick_miso2),
-    .O_RXD_1(joy_rx2[0]), .O_RXD_2(joy_rx2[1]), 
-    .O_RXD_3(), .O_RXD_4(), .O_RXD_5(), .O_RXD_6(),
-    .I_CONF_SW(1'b0), .I_MODE_SW(1'b1), .I_MODE_EN(1'b0),
-    .I_VIB_SW(2'b00)     // no vibration
-);
+                                    .clk(clk),
+                                    .I_RSTn(1'b1),
+                                    .O_psCLK(joystick_clk2),
+                                    .O_psSEL(joystick_cs2),
+                                    .O_psTXD(joystick_mosi2),
+                                    .I_psRXD(joystick_miso2),
+                                    .O_RXD_1(joy_rx2[0]),
+                                    .O_RXD_2(joy_rx2[1]), 
+                                    .O_RXD_3(),
+                                    .O_RXD_4(),
+                                    .O_RXD_5(),
+                                    .O_RXD_6(),
+                                    .I_CONF_SW(1'b0),
+                                    .I_MODE_SW(1'b1), .I_MODE_EN(1'b0),
+                                    .I_VIB_SW(2'b00)     // no vibration
+                                );
 
 Autofire af_square (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx[1][7] | usb_btn_y), .out(auto_square));            // B
 Autofire af_triangle (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx[1][4] | usb_btn_x), .out(auto_triangle));        // A
@@ -425,29 +487,44 @@ Autofire af_triangle2 (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx2[1][4] | usb
 wire [1:0] usb_type, usb_type2;
 wire usb_report, usb_report2;
 usb_hid_host usb_controller (
-    .usbclk(clk_usb), .usbrst_n(sys_resetn),
-    .usb_dm(usbdm), .usb_dp(usbdp),	.typ(usb_type), .report(usb_report), 
-    .game_l(usb_btn[6]), .game_r(usb_btn[7]), .game_u(usb_btn[4]), .game_d(usb_btn[5]), 
-    .game_a(usb_btn[0]), .game_b(usb_btn[1]), .game_x(usb_btn_x), .game_y(usb_btn_y), 
-    .game_sel(usb_btn[2]), .game_sta(usb_btn[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
-    .mouse_btn(), .mouse_dx(), .mouse_dy(),
-    .dbg_hid_report()
-);
+                                .usbclk(clk_usb),
+                                .usbrst_n(sys_resetn),
+                                .usb_dm(usbdm),
+                                .usb_dp(usbdp),
+                                .typ(usb_type),
+                                .report(usb_report), 
+                                .game_l(usb_btn[6]),
+                                .game_r(usb_btn[7]),
+                                .game_u(usb_btn[4]),
+                                .game_d(usb_btn[5]), 
+                                .game_a(usb_btn[0]),
+                                .game_b(usb_btn[1]),
+                                .game_x(usb_btn_x),
+                                .game_y(usb_btn_y), 
+                                .game_sel(usb_btn[2]),
+                                .game_sta(usb_btn[3]),
+                                // ignore keyboard and mouse input
+                                .key_modifiers(),
+                                .key1(),
+                                .key2(), .key3(),
+                                .key4(),
+                                .mouse_btn(), .mouse_dx(),
+                                .mouse_dy(),
+                                .dbg_hid_report()
+                            );
 
 `ifndef P25K
 usb_hid_host usb_controller2 (
-    .usbclk(clk_usb), .usbrst_n(sys_resetn),
-    .usb_dm(usbdm2), .usb_dp(usbdp2),	.typ(usb_type2), .report(usb_report2), 
-    .game_l(usb_btn2[6]), .game_r(usb_btn2[7]), .game_u(usb_btn2[4]), .game_d(usb_btn2[5]), 
-    .game_a(usb_btn2[0]), .game_b(usb_btn2[1]), .game_x(usb_btn_x2), .game_y(usb_btn_y2), 
-    .game_sel(usb_btn2[2]), .game_sta(usb_btn2[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
-    .mouse_btn(), .mouse_dx(), .mouse_dy(),
-    .dbg_hid_report()
-);
+                                .usbclk(clk_usb), .usbrst_n(sys_resetn),
+                                .usb_dm(usbdm2), .usb_dp(usbdp2),	.typ(usb_type2), .report(usb_report2), 
+                                .game_l(usb_btn2[6]), .game_r(usb_btn2[7]), .game_u(usb_btn2[4]), .game_d(usb_btn2[5]), 
+                                .game_a(usb_btn2[0]), .game_b(usb_btn2[1]), .game_x(usb_btn_x2), .game_y(usb_btn_y2), 
+                                .game_sel(usb_btn2[2]), .game_sta(usb_btn2[3]),
+                                // ignore keyboard and mouse input
+                                .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
+                                .mouse_btn(), .mouse_dx(), .mouse_dy(),
+                                .dbg_hid_report()
+                             );
 `endif
 
 //
