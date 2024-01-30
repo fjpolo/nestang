@@ -1867,6 +1867,7 @@ module MultiMapper(
     prg_dout = 8'hff;
     has_chr_dout = 0;
     chr_dout = mmc5_chr_dout;
+    audio = 16'h0000;
         
     case(flags[7:0])
     1:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {mmc1_prg_addr, mmc1_prg_allow, mmc1_chr_addr, mmc1_vram_a10, mmc1_vram_ce, mmc1_chr_allow};
