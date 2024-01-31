@@ -159,6 +159,7 @@ module MemoryMultiplex(
   assign memory_read_ppu = chr_read;
   assign memory_read_cpu = !(chr_read || chr_write) && (prg_read || saved_prg_read);
   assign memory_dout = chr_write ? chr_din : prg_din;
+  
   always @(posedge clk) begin
     if(i_rewind_enable) begin
       saved_prg_read <= saved_prg_read_rewind;
@@ -217,7 +218,8 @@ module NES(
             input ext_audio,
 
             // Rewind
-            input i_rewind_enable
+            input i_rewind_enable,
+            output o_rewind_time_to_save
                        
             // output reg [31:0] dbgadr,
             // output [1:0] dbgctr
@@ -519,6 +521,7 @@ module NES(
   parameter REWIND_CLOCK_COUNT_5S = TANG_CPU_CLOCK_NTSC * 5;    // 135_000_000 [Hz]
 
   assign rewind_time_to_save = (rewind_clk_counter == TANG_CPU_CLOCK_NTSC);
+  assign o_rewind_time_to_save = rewind_time_to_save;
 
   always @(posedge clk) begin
     if(reset) begin

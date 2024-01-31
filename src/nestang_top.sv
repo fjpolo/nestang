@@ -339,6 +339,7 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   // Rewind
   wire NES_rewind_enable;
   assign NES_rewind_enable = 0; // = (nes_btn[2] & nes_btn[6]) // Select+Left
+  wire NES_rewind_time_to_save;
 
   // Main NES machine
   NES nes(
@@ -365,7 +366,8 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
             NES_int_audio,
             NES_ext_audio,
             // Rewind
-            NES_rewind_enable
+            NES_rewind_enable,
+            NES_rewind_time_to_save
          );
 
 /*verilator tracing_off*/
@@ -383,9 +385,9 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
                             .din(loader_write ? loader_write_data : memory_dout),
                             .dout_a(memory_din_cpu),
                             .dout_b(memory_din_ppu),
-                            .busy(ram_busy),
-                            .fail(ram_fail),
-                            .total_written(ram_total_written),
+                            .o_busy(ram_busy),
+                            .o_fail(ram_fail),
+                            .o_total_written(ram_total_written),
 
                             .SDRAM_DQ(IO_sdram_dq),
                             .SDRAM_A(O_sdram_addr),
@@ -396,7 +398,10 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
                             .SDRAM_nCAS(O_sdram_cas_n), 
                             .SDRAM_CLK(O_sdram_clk),
                             .SDRAM_CKE(O_sdram_cke),
-                            .SDRAM_DQM(O_sdram_dqm)
+                            .SDRAM_DQM(O_sdram_dqm),
+                            .i_rewind_time_to_save(NES_rewind_time_to_save),
+                            .i_rewind_enable(NES_rewind_enable)
+                            
                          );
 /*verilator tracing_on*/
 
