@@ -258,19 +258,21 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
   // Parses ROM data and store them for MemoryController to access
   GameLoader loader(
-                        .clk(clk),
-                        .reset(loader_reset),
-                        .indata(loader_input),
-                        .indata_clk(loader_clk),
-                        .mem_addr(loader_addr),
-                        .mem_data(loader_write_data),
-                        .mem_write(loader_write),
-                        .mem_refresh(loader_refresh),
-                        .mapper_flags(mapper_flags), 
-                        .done(loader_done),
-                        .error(loader_fail),
-                        .loader_state(),
-                        .loader_bytes_left()
+                      .clk(clk),
+                      .reset(loader_reset),
+                      .indata(loader_input),
+                      .indata_clk(loader_clk),
+                      .o_mem_addr(loader_addr),
+                      .mem_data(loader_write_data),
+                      .mem_write(loader_write),
+                      .o_mem_refresh(loader_refresh),
+                      .mapper_flags(mapper_flags), 
+                      .o_done(loader_done),
+                      .error(loader_fail),
+                      .loader_state(),
+                      .loader_bytes_left(),
+                      .i_rewind_time_to_save(NES_rewind_time_to_save),
+                      .i_rewind_enable(NES_rewind_enable)
                     );
 
   // The NES machine

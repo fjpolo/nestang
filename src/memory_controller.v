@@ -113,14 +113,19 @@ sdram #(
                     .clk(clk),
                     .clk_sdram(clk_sdram),
                     .resetn(resetn),
-                    .addr(busy ? MemAddr : {1'b0, addr}), .rd(busy ? MemRD : (read_a || read_b)), 
-                    .wr(busy ? MemWR : write), .refresh(busy ? MemRefresh : refresh),
-                    .din(busy ? MemDin : din), .dout(MemDout), .busy(MemBusy), .data_ready(MemDataReady),
+                    .addr(busy ? MemAddr : {1'b0, addr}), 
+                    .rd(busy ? MemRD : (read_a || read_b)), 
+                    .wr(busy ? MemWR : write), 
+                    .refresh(busy ? MemRefresh : refresh),
+                    .din(busy ? MemDin : din), 
+                    .dout(MemDout), .busy(MemBusy), 
+                    .data_ready(MemDataReady),
                     .SDRAM_DQ(SDRAM_DQ),
                     .SDRAM_A(SDRAM_A),
                     .SDRAM_BA(SDRAM_BA), 
                     .SDRAM_nCS(SDRAM_nCS),
-                    .SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS),
+                    .SDRAM_nWE(SDRAM_nWE), 
+                    .SDRAM_nRAS(SDRAM_nRAS),
                     .SDRAM_nCAS(SDRAM_nCAS),
                     .SDRAM_CLK(SDRAM_CLK),
                     .SDRAM_CKE(SDRAM_CKE),
@@ -160,7 +165,8 @@ always @(posedge clk) begin
                 r_read_a <= read_a;
                 r_read_b <= read_b;
 
-                if (write) total_written <= total_written + 1;
+                if (write) 
+                    total_written <= total_written + 1;
             end 
         end else if (MemInitializing) begin
             if (~MemBusy) begin
@@ -208,9 +214,12 @@ assign dout_b = dout_b_next;
 always @(posedge clk) begin
 //    cycles <= cycles == 3'd7 ? 3'd7 : cycles + 3'd1;
 
-    if (read_a) dout_a_next <= SIM_MEM[addr];
-    if (read_b) dout_b_next <= SIM_MEM[addr];
-    if (write) SIM_MEM[addr] <= din;
+    if (read_a) 
+        dout_a_next <= SIM_MEM[addr];
+    if (read_b) 
+        dout_b_next <= SIM_MEM[addr];
+    if (write) 
+        SIM_MEM[addr] <= din;
 
     if (~resetn) begin
         busy <= 1'b0;
