@@ -171,14 +171,16 @@ module NewAlu(
 
   // Rewind: Save state
   always @(posedge i_rewind_time_to_save) begin
-    L_rewind <= L;
-    CR_rewind <= CR;
-    CO_rewind <= CO;
-    VO_rewind <= VO;
-    SO_rewind <= SO;
-    ZO_rewind <= ZO;
-    Result_rewind <= Result;
-    IntR_rewind <= IntR;
+    if(!i_rewind_enable) begin
+      L_rewind <= L;
+      CR_rewind <= CR;
+      CO_rewind <= CO;
+      VO_rewind <= VO;
+      SO_rewind <= SO;
+      ZO_rewind <= ZO;
+      Result_rewind <= Result;
+      IntR_rewind <= IntR;
+    end
   end
 
 endmodule
@@ -243,9 +245,11 @@ module AddressGenerator(
 
   // Rewind: Save state
   always @(posedge i_rewind_time_to_save) begin
-    AL_rewind <= AL;
-    AH_rewind <= AH;
-    SavedCarry_rewind <= SavedCarry;
+    if(!i_rewind_enable) begin
+      AL_rewind <= AL;
+      AH_rewind <= AH;
+      SavedCarry_rewind <= SavedCarry;
+    end
   end
 
 endmodule
@@ -297,8 +301,10 @@ module ProgramCounter(
 
   // Rewind: Save state
   always @(posedge i_rewind_time_to_save) begin
-    PC_rewind <= PC;
-    NewPC_rewind <= NewPC;
+    if(!i_rewind_enable) begin
+      PC_rewind <= PC;
+      NewPC_rewind <= NewPC;
+    end
   end
 
 endmodule
@@ -619,23 +625,24 @@ end
 
 // Rewind: Save state
   always @(posedge i_rewind_time_to_save) begin
-    A_rewind = A;
-    X_rewind = X;
-    Y_rewind = Y;
-    SP_rewind = SP;
-    T_rewind = T;
-    P_rewind = P;
-    IR_rewind = IR;
-    State_rewind = State;
-    GotInterrupt_rewind = GotInterrupt;
-    IsResetInterrupt_rewind = IsResetInterrupt;
-    JumpTaken_rewind = JumpTaken;
-    NextState_rewind = NextState;
-    IsNMIInterrupt_rewind = IsNMIInterrupt;
-    LastNMI_rewind = LastNMI;
-    dout_rewind <= dout;
-    aout_rewind <= aout;
-
+    if(!i_rewind_enable) begin
+      A_rewind = A;
+      X_rewind = X;
+      Y_rewind = Y;
+      SP_rewind = SP;
+      T_rewind = T;
+      P_rewind = P;
+      IR_rewind = IR;
+      State_rewind = State;
+      GotInterrupt_rewind = GotInterrupt;
+      IsResetInterrupt_rewind = IsResetInterrupt;
+      JumpTaken_rewind = JumpTaken;
+      NextState_rewind = NextState;
+      IsNMIInterrupt_rewind = IsNMIInterrupt;
+      LastNMI_rewind = LastNMI;
+      dout_rewind <= dout;
+      aout_rewind <= aout;
+    end
   end
 
 endmodule
