@@ -43,53 +43,83 @@ if (spr_state == 3 && odd_cycle) { DO_WRITE; }
 */
 
 
-module DmaController(input clk, input ce, input reset,
-                     input odd_cycle,               // Current cycle even or odd?
-                     input sprite_trigger,          // Sprite DMA trigger?
-                     input dmc_trigger,             // DMC DMA trigger?
-                     input cpu_read,                // CPU is in a read cycle?
-                     input [7:0] data_from_cpu,     // Data written by CPU?
-                     input [7:0] data_from_ram,     // Data read from RAM?
-                     input [15:0] dmc_dma_addr,     // DMC DMA Address
-                     output [15:0] aout,            // Address to access
-                     output aout_enable,            // DMA controller wants bus control
-                     output read,                   // 1 = read, 0 = write
-                     output [7:0] data_to_ram,      // Value to write to RAM
-                     output dmc_ack,                // ACK the DMC DMA
-                     output pause_cpu);             // CPU is paused
+module DmaController(
+                      input clk, 
+                      input ce, 
+                      input reset,
+                      input odd_cycle,               // Current cycle even or odd?
+                      input sprite_trigger,          // Sprite DMA trigger?
+                      input dmc_trigger,             // DMC DMA trigger?
+                      input cpu_read,                // CPU is in a read cycle?
+                      input [7:0] data_from_cpu,     // Data written by CPU?
+                      input [7:0] data_from_ram,     // Data read from RAM?
+                      input [15:0] dmc_dma_addr,     // DMC DMA Address
+                      output [15:0] aout,            // Address to access
+                      output aout_enable,            // DMA controller wants bus control
+                      output read,                   // 1 = read, 0 = write
+                      output [7:0] data_to_ram,      // Value to write to RAM
+                      output dmc_ack,                // ACK the DMC DMA
+                      output pause_cpu,              // CPU is paused
+                      // Rewind
+                      input i_rewind_time_to_save,
+                      input i_rewind_enable 
+                    );
   reg dmc_state;
   reg [1:0] spr_state;
   reg [7:0] sprite_dma_lastval;
   reg [15:0] sprite_dma_addr;     // sprite dma source addr
   wire [8:0] new_sprite_dma_addr = sprite_dma_addr[7:0] + 8'h01;
+  
   // Rewind
   reg dmc_state_rewind;
   reg [1:0] spr_state_rewind;
   reg [7:0] sprite_dma_lastval_rewind;
   reg [15:0] sprite_dma_addr_rewind;
 
-  always @(posedge clk) if (reset) begin
+  always @(posedge clk) 
+  if (reset) begin
     dmc_state <= 0;
     spr_state <= 0;    
     sprite_dma_lastval <= 0;
     sprite_dma_addr <= 0;
-  end else if (ce) begin
-    if (dmc_state == 0 && dmc_trigger && cpu_read && !odd_cycle) dmc_state <= 1;
-    if (dmc_state == 1 && !odd_cycle) dmc_state <= 0;
-    
-    if (sprite_trigger) begin sprite_dma_addr <= {data_from_cpu, 8'h00}; spr_state <= 1; end
-    if (spr_state == 1 && cpu_read && odd_cycle) spr_state <= 3;
-    if (spr_state[1] && !odd_cycle && dmc_state == 1) spr_state <= 1;
-    if (spr_state[1] && odd_cycle) sprite_dma_addr[7:0] <= new_sprite_dma_addr[7:0];
-    if (spr_state[1] && odd_cycle && new_sprite_dma_addr[8]) spr_state <= 0;
-    if (spr_state[1]) sprite_dma_lastval <= data_from_ram;
+  end else begin 
+    if (i_rewind_enable) begin
+      dmc_state <= dmc_state_rewind;
+      spr_state <= spr_state_rewind;
+      sprite_dma_lastval <= sprite_dma_lastval_rewind;
+      sprite_dma_addr <= sprite_dma_addr_rewind;
+    end else begin
+      if (ce) begin
+        if (dmc_state == 0 && dmc_trigger && cpu_read && !odd_cycle) dmc_state <= 1;
+        if (dmc_state == 1 && !odd_cycle) dmc_state <= 0;
+        
+        if (sprite_trigger) begin sprite_dma_addr <= {data_from_cpu, 8'h00}; spr_state <= 1; end
+        if (spr_state == 1 && cpu_read && odd_cycle) spr_state <= 3;
+        if (spr_state[1] && !odd_cycle && dmc_state == 1) spr_state <= 1;
+        if (spr_state[1] && odd_cycle) sprite_dma_addr[7:0] <= new_sprite_dma_addr[7:0];
+        if (spr_state[1] && odd_cycle && new_sprite_dma_addr[8]) spr_state <= 0;
+        if (spr_state[1]) sprite_dma_lastval <= data_from_ram;
+      end
+    end
   end
+
   assign pause_cpu = (spr_state[0] || dmc_trigger) && cpu_read;
   assign dmc_ack   = (dmc_state == 1 && !odd_cycle);
   assign aout_enable = dmc_ack || spr_state[1];
   assign read = !odd_cycle;
   assign data_to_ram = sprite_dma_lastval;
   assign aout = dmc_ack ? dmc_dma_addr : !odd_cycle ? sprite_dma_addr : 16'h2004;
+
+  // Rewind: Save state
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      dmc_state_rewind <= dmc_state;
+      spr_state_rewind <= spr_state;
+      sprite_dma_lastval_rewind <= sprite_dma_lastval;
+      sprite_dma_addr_rewind <= sprite_dma_addr;     
+    end
+  end
+
 endmodule
 
 // Multiplexes accesses by the PPU and the PRG into a single memory, used for both
@@ -99,30 +129,61 @@ endmodule
 // Data read by PPU will be available on the next clock cycle.
 // Data read by CPU will be available within at most 2 clock cycles.
 
-module MemoryMultiplex(input clk, input ce,
-                       input [21:0] prg_addr, input prg_read, input prg_write, input [7:0] prg_din,
-                       input [21:0] chr_addr, input chr_read, input chr_write, input [7:0] chr_din,
-                       // Access signals for the SRAM.
-                       output [21:0] memory_addr,   // address to access
-                       output memory_read_cpu,      // read into CPU latch
-                       output memory_read_ppu,      // read into PPU latch
-                       output memory_write,         // is a write operation
-                       output [7:0] memory_dout);
+module MemoryMultiplex(
+                        input clk, input ce,
+                        input [21:0] prg_addr,
+                        input prg_read,
+                        input prg_write,
+                        input [7:0] prg_din,
+                        input [21:0] chr_addr,
+                        input chr_read,
+                        input chr_write,
+                        input [7:0] chr_din,
+                        // Access signals for the SRAM.
+                        output [21:0] memory_addr,   // address to access
+                        output memory_read_cpu,      // read into CPU latch
+                        output memory_read_ppu,      // read into PPU latch
+                        output memory_write,         // is a write operation
+                        output [7:0] memory_dout,
+                        // Rewind
+                        input i_rewind_time_to_save,
+                        input i_rewind_enable
+                      );
   reg saved_prg_read, saved_prg_write;
+
+  // Rewind
+  reg saved_prg_read_rewind, saved_prg_write_rewind;
+
   assign memory_addr = (chr_read || chr_write) ? chr_addr : prg_addr;
   assign memory_write = (chr_read || chr_write) ? chr_write : saved_prg_write;
   assign memory_read_ppu = chr_read;
   assign memory_read_cpu = !(chr_read || chr_write) && (prg_read || saved_prg_read);
   assign memory_dout = chr_write ? chr_din : prg_din;
-  always @(posedge clk) if (ce) begin
-    if (chr_read || chr_write) begin
-      saved_prg_read <= prg_read || saved_prg_read;
-      saved_prg_write <= prg_write || saved_prg_write;
+  always @(posedge clk) begin
+    if(i_rewind_enable) begin
+      saved_prg_read <= saved_prg_read_rewind;
+      saved_prg_write <= saved_prg_write_rewind; 
     end else begin
-      saved_prg_read <= 0;
-      saved_prg_write <= prg_write;
+      if (ce) begin
+        if (chr_read || chr_write) begin
+          saved_prg_read <= prg_read || saved_prg_read;
+          saved_prg_write <= prg_write || saved_prg_write;
+        end else begin
+          saved_prg_read <= 0;
+          saved_prg_write <= prg_write;
+        end
+      end
     end
   end
+
+  // Rewind: Save state
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      saved_prg_read_rewind <= saved_prg_read;
+      saved_prg_write_rewind <= saved_prg_write;     
+    end
+  end
+
 endmodule
 
 
