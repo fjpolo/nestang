@@ -8,59 +8,59 @@ module LenCtr_Lookup(
                       input i_rewind_time_to_save,
                       input i_rewind_enable
                     );
-reg [6:0] Y;
-// Rewind
-reg [6:0] Y_rewind;
+  reg [6:0] Y;
+  // Rewind
+  reg [6:0] Y_rewind;
 
-always @(*) begin
-  if(i_rewind_enable) begin
-    Y <= Y_rewind;
-  end else begin
-    case(X)
-      0: Y = 7'h05;
-      1: Y = 7'h7F;
-      2: Y = 7'h0A;
-      3: Y = 7'h01;
-      4: Y = 7'h14;
-      5: Y = 7'h02;
-      6: Y = 7'h28;
-      7: Y = 7'h03;
-      8: Y = 7'h50;
-      9: Y = 7'h04;
-      10: Y = 7'h1E;
-      11: Y = 7'h05;
-      12: Y = 7'h07;
-      13: Y = 7'h06;
-      14: Y = 7'h0D;
-      15: Y = 7'h07;
-      16: Y = 7'h06;
-      17: Y = 7'h08;
-      18: Y = 7'h0C;
-      19: Y = 7'h09;
-      20: Y = 7'h18;
-      21: Y = 7'h0A;
-      22: Y = 7'h30;
-      23: Y = 7'h0B;
-      24: Y = 7'h60;
-      25: Y = 7'h0C;
-      26: Y = 7'h24;
-      27: Y = 7'h0D;
-      28: Y = 7'h08;
-      29: Y = 7'h0E;
-      30: Y = 7'h10;
-      31: Y = 7'h0F;
-    endcase
+  always @(*) begin
+    if(i_rewind_enable) begin
+      Y <= Y_rewind;
+    end else begin
+      case(X)
+        0: Y = 7'h05;
+        1: Y = 7'h7F;
+        2: Y = 7'h0A;
+        3: Y = 7'h01;
+        4: Y = 7'h14;
+        5: Y = 7'h02;
+        6: Y = 7'h28;
+        7: Y = 7'h03;
+        8: Y = 7'h50;
+        9: Y = 7'h04;
+        10: Y = 7'h1E;
+        11: Y = 7'h05;
+        12: Y = 7'h07;
+        13: Y = 7'h06;
+        14: Y = 7'h0D;
+        15: Y = 7'h07;
+        16: Y = 7'h06;
+        17: Y = 7'h08;
+        18: Y = 7'h0C;
+        19: Y = 7'h09;
+        20: Y = 7'h18;
+        21: Y = 7'h0A;
+        22: Y = 7'h30;
+        23: Y = 7'h0B;
+        24: Y = 7'h60;
+        25: Y = 7'h0C;
+        26: Y = 7'h24;
+        27: Y = 7'h0D;
+        28: Y = 7'h08;
+        29: Y = 7'h0E;
+        30: Y = 7'h10;
+        31: Y = 7'h0F;
+      endcase
+    end
   end
-end
 
-assign Yout = {Y, 1'b0};
+  assign Yout = {Y, 1'b0};
 
-// Rewind: Save state
-always @(posedge i_rewind_time_to_save) begin
-  if(!i_rewind_enable) begin
-    Y_rewind <= Y;    
+  // Rewind: Save state
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      Y_rewind <= Y;    
+    end
   end
-end
 
 endmodule
 
@@ -82,211 +82,211 @@ module SquareChan(
                     i_rewind_time_to_save,
                     i_rewind_enable
                   );
-reg [7:0] LenCtr;
+  reg [7:0] LenCtr;
 
-// Register 1
-reg [1:0] Duty;
-reg EnvLoop, EnvDisable, EnvDoReset;
-reg [3:0] Volume, Envelope, EnvDivider;
-wire LenCtrHalt = EnvLoop; // Aliased bit
-assign IsNonZero = (LenCtr != 0);
-// Register 2
-reg SweepEnable, SweepNegate, SweepReset;
-reg [2:0] SweepPeriod, SweepDivider, SweepShift;
+  // Register 1
+  reg [1:0] Duty;
+  reg EnvLoop, EnvDisable, EnvDoReset;
+  reg [3:0] Volume, Envelope, EnvDivider;
+  wire LenCtrHalt = EnvLoop; // Aliased bit
+  assign IsNonZero = (LenCtr != 0);
+  // Register 2
+  reg SweepEnable, SweepNegate, SweepReset;
+  reg [2:0] SweepPeriod, SweepDivider, SweepShift;
 
-reg [10:0] Period;
-reg [11:0] TimerCtr;
-reg [2:0] SeqPos;
-wire [10:0] ShiftedPeriod = (Period >> SweepShift);
-wire [10:0] PeriodRhs = (SweepNegate ? (~ShiftedPeriod + {10'b0, sq2}) : ShiftedPeriod);
-wire [11:0] NewSweepPeriod = Period + PeriodRhs;
-wire ValidFreq = Period[10:3] >= 8 && (SweepNegate || !NewSweepPeriod[11]);
+  reg [10:0] Period;
+  reg [11:0] TimerCtr;
+  reg [2:0] SeqPos;
+  wire [10:0] ShiftedPeriod = (Period >> SweepShift);
+  wire [10:0] PeriodRhs = (SweepNegate ? (~ShiftedPeriod + {10'b0, sq2}) : ShiftedPeriod);
+  wire [11:0] NewSweepPeriod = Period + PeriodRhs;
+  wire ValidFreq = Period[10:3] >= 8 && (SweepNegate || !NewSweepPeriod[11]);
 
-reg [3:0] Sample;
-assign o_sample = Sample;
+  reg [3:0] Sample;
+  assign o_sample = Sample;
 
-// Rewind
-reg [7:0] LenCtr_rewind;
-reg [1:0] Duty_rewind;
-reg EnvLoop_rewind, EnvDisable_rewind, EnvDoReset_rewind;
-reg [3:0] Volume_rewind, Envelope_rewind, EnvDivider_rewind;
-reg SweepEnable_rewind, SweepNegate_rewind, SweepReset_rewind;
-reg [2:0] SweepPeriod_rewind, SweepDivider_rewind, SweepShift_rewind;
-reg [10:0] Period_rewind;
-reg [11:0] TimerCtr_rewind;
-reg [2:0] SeqPos_rewind;
-reg [3:0] Sample_rewind;
+  // Rewind
+  reg [7:0] LenCtr_rewind;
+  reg [1:0] Duty_rewind;
+  reg EnvLoop_rewind, EnvDisable_rewind, EnvDoReset_rewind;
+  reg [3:0] Volume_rewind, Envelope_rewind, EnvDivider_rewind;
+  reg SweepEnable_rewind, SweepNegate_rewind, SweepReset_rewind;
+  reg [2:0] SweepPeriod_rewind, SweepDivider_rewind, SweepShift_rewind;
+  reg [10:0] Period_rewind;
+  reg [11:0] TimerCtr_rewind;
+  reg [2:0] SeqPos_rewind;
+  reg [3:0] Sample_rewind;
 
 
-always @(posedge clk) 
-  if (reset) begin
-    LenCtr <= 0;
-    Duty <= 0;
-    EnvDoReset <= 0;
-    EnvLoop <= 0;
-    EnvDisable <= 0;
-    Volume <= 0;
-    Envelope <= 0;
-    EnvDivider <= 0;
-    SweepEnable <= 0;
-    SweepNegate <= 0;
-    SweepReset <= 0;
-    SweepPeriod <= 0;
-    SweepDivider <= 0;
-    SweepShift <= 0;    
-    Period <= 0;
-    TimerCtr <= 0;
-    SeqPos <= 0;
-  end else begin
-    if(i_rewind_enable) begin
-      LenCtr <= LenCtr_rewind;
-      Duty <= Duty_rewind;
-      EnvDoReset <= EnvDoReset_rewind;
-      EnvLoop <= EnvLoop_rewind;
-      EnvDisable <= EnvDisable_rewind;
-      Volume <= Volume_rewind;
-      Envelope <= Envelope_rewind;
-      EnvDivider <= EnvDivider_rewind;
-      SweepEnable <= SweepEnable_rewind;
-      SweepNegate <= SweepNegate_rewind;
-      SweepReset <= SweepReset_rewind;
-      SweepPeriod <= SweepPeriod_rewind;
-      SweepDivider <= SweepDivider_rewind;
-      SweepShift <= SweepShift_rewind;
-      Period <= Period_rewind;
-      TimerCtr <= TimerCtr_rewind;
-      SeqPos <= SeqPos_rewind;
-    end else begin
-      if (ce) begin
-        // Check if writing to the regs of this channel
-        // NOTE: This needs to be done before the clocking below.
-        if (MW) begin
-          case(Addr)
-          0: begin
-      //      if (sq2) $write("SQ0: Duty=%d, EnvLoop=%d, EnvDisable=%d, Volume=%d\n", DIN[7:6], DIN[5], DIN[4], DIN[3:0]);
-            Duty <= DIN[7:6];
-            EnvLoop <= DIN[5];
-            EnvDisable <= DIN[4];
-            Volume <= DIN[3:0];
-          end
-          1: begin
-      //      if (sq2) $write("SQ1: SweepEnable=%d, SweepPeriod=%d, SweepNegate=%d, SweepShift=%d, DIN=%X\n", DIN[7], DIN[6:4], DIN[3], DIN[2:0], DIN);
-            SweepEnable <= DIN[7];
-            SweepPeriod <= DIN[6:4];
-            SweepNegate <= DIN[3];
-            SweepShift <= DIN[2:0];
-            SweepReset <= 1;
-          end
-          2: begin
-      //      if (sq2) $write("SQ2: Period=%d. DIN=%X\n", DIN, DIN);
-            Period[7:0] <= DIN;
-          end
-          3: begin
-            // Upper bits of the period
-      //      if (sq2) $write("SQ3: PeriodUpper=%d LenCtr=%x DIN=%X\n", DIN[2:0], LenCtr_In, DIN);
-            Period[10:8] <= DIN[2:0];
-            LenCtr <= LenCtr_In;
-            EnvDoReset <= 1;
-            SeqPos <= 0;
-          end
-          endcase
-        end
-
-      
-      // Count down the square timer...
-      if (TimerCtr == 0) begin
-        // Timer was clocked
-        TimerCtr <= {Period, 1'b0};
-        SeqPos <= SeqPos - 1;
-      end else begin
-        TimerCtr <= TimerCtr - 1;
-      end
-
-      // Clock the length counter?
-      if (LenCtr_Clock && LenCtr != 0 && !LenCtrHalt) begin
-        LenCtr <= LenCtr - 1;
-      end
-      
-      // Clock the sweep unit?
-      if (LenCtr_Clock) begin
-        if (SweepDivider == 0) begin
-          SweepDivider <= SweepPeriod;
-          if (SweepEnable && SweepShift != 0 && ValidFreq)
-            Period <= NewSweepPeriod[10:0];
-        end else begin
-          SweepDivider <= SweepDivider - 1;
-        end
-        if (SweepReset)
-          SweepDivider <= SweepPeriod;
-        SweepReset <= 0;
-      end
-      
-      // Clock the envelope generator?
-      if (Env_Clock) begin
-        if (EnvDoReset) begin
-          EnvDivider <= Volume;
-          Envelope <= 15;
-          EnvDoReset <= 0;
-        end else if (EnvDivider == 0) begin
-          EnvDivider <= Volume;
-          if (Envelope != 0 || EnvLoop)
-            Envelope <= Envelope - 1;
-        end else begin
-          EnvDivider <= EnvDivider - 1;
-        end
-      end
-    end
-  end
- 
-  // Length counter forced to zero if disabled.
-  if (!Enabled)
-    if(i_rewind_enable) begin
-      LenCtr <= LenCtr_rewind;
-    end else begin
+  always @(posedge clk) 
+    if (reset) begin
       LenCtr <= 0;
+      Duty <= 0;
+      EnvDoReset <= 0;
+      EnvLoop <= 0;
+      EnvDisable <= 0;
+      Volume <= 0;
+      Envelope <= 0;
+      EnvDivider <= 0;
+      SweepEnable <= 0;
+      SweepNegate <= 0;
+      SweepReset <= 0;
+      SweepPeriod <= 0;
+      SweepDivider <= 0;
+      SweepShift <= 0;    
+      Period <= 0;
+      TimerCtr <= 0;
+      SeqPos <= 0;
+    end else begin
+      if(i_rewind_enable) begin
+        LenCtr <= LenCtr_rewind;
+        Duty <= Duty_rewind;
+        EnvDoReset <= EnvDoReset_rewind;
+        EnvLoop <= EnvLoop_rewind;
+        EnvDisable <= EnvDisable_rewind;
+        Volume <= Volume_rewind;
+        Envelope <= Envelope_rewind;
+        EnvDivider <= EnvDivider_rewind;
+        SweepEnable <= SweepEnable_rewind;
+        SweepNegate <= SweepNegate_rewind;
+        SweepReset <= SweepReset_rewind;
+        SweepPeriod <= SweepPeriod_rewind;
+        SweepDivider <= SweepDivider_rewind;
+        SweepShift <= SweepShift_rewind;
+        Period <= Period_rewind;
+        TimerCtr <= TimerCtr_rewind;
+        SeqPos <= SeqPos_rewind;
+      end else begin
+        if (ce) begin
+          // Check if writing to the regs of this channel
+          // NOTE: This needs to be done before the clocking below.
+          if (MW) begin
+            case(Addr)
+            0: begin
+        //      if (sq2) $write("SQ0: Duty=%d, EnvLoop=%d, EnvDisable=%d, Volume=%d\n", DIN[7:6], DIN[5], DIN[4], DIN[3:0]);
+              Duty <= DIN[7:6];
+              EnvLoop <= DIN[5];
+              EnvDisable <= DIN[4];
+              Volume <= DIN[3:0];
+            end
+            1: begin
+        //      if (sq2) $write("SQ1: SweepEnable=%d, SweepPeriod=%d, SweepNegate=%d, SweepShift=%d, DIN=%X\n", DIN[7], DIN[6:4], DIN[3], DIN[2:0], DIN);
+              SweepEnable <= DIN[7];
+              SweepPeriod <= DIN[6:4];
+              SweepNegate <= DIN[3];
+              SweepShift <= DIN[2:0];
+              SweepReset <= 1;
+            end
+            2: begin
+        //      if (sq2) $write("SQ2: Period=%d. DIN=%X\n", DIN, DIN);
+              Period[7:0] <= DIN;
+            end
+            3: begin
+              // Upper bits of the period
+        //      if (sq2) $write("SQ3: PeriodUpper=%d LenCtr=%x DIN=%X\n", DIN[2:0], LenCtr_In, DIN);
+              Period[10:8] <= DIN[2:0];
+              LenCtr <= LenCtr_In;
+              EnvDoReset <= 1;
+              SeqPos <= 0;
+            end
+            endcase
+          end
+
+        
+        // Count down the square timer...
+        if (TimerCtr == 0) begin
+          // Timer was clocked
+          TimerCtr <= {Period, 1'b0};
+          SeqPos <= SeqPos - 1;
+        end else begin
+          TimerCtr <= TimerCtr - 1;
+        end
+
+        // Clock the length counter?
+        if (LenCtr_Clock && LenCtr != 0 && !LenCtrHalt) begin
+          LenCtr <= LenCtr - 1;
+        end
+        
+        // Clock the sweep unit?
+        if (LenCtr_Clock) begin
+          if (SweepDivider == 0) begin
+            SweepDivider <= SweepPeriod;
+            if (SweepEnable && SweepShift != 0 && ValidFreq)
+              Period <= NewSweepPeriod[10:0];
+          end else begin
+            SweepDivider <= SweepDivider - 1;
+          end
+          if (SweepReset)
+            SweepDivider <= SweepPeriod;
+          SweepReset <= 0;
+        end
+        
+        // Clock the envelope generator?
+        if (Env_Clock) begin
+          if (EnvDoReset) begin
+            EnvDivider <= Volume;
+            Envelope <= 15;
+            EnvDoReset <= 0;
+          end else if (EnvDivider == 0) begin
+            EnvDivider <= Volume;
+            if (Envelope != 0 || EnvLoop)
+              Envelope <= Envelope - 1;
+          end else begin
+            EnvDivider <= EnvDivider - 1;
+          end
+        end
+      end
     end
-end
-
-reg DutyEnabled;  
-always @* begin
-  // Determine if the duty is enabled or not
-  case (Duty)
-  0: DutyEnabled = (SeqPos == 7);
-  1: DutyEnabled = (SeqPos >= 6);
-  2: DutyEnabled = (SeqPos >= 4);
-  3: DutyEnabled = (SeqPos < 6);
-  endcase
-
-  // Compute the output
-  if (LenCtr == 0 || !ValidFreq || !DutyEnabled)
-    Sample = 0;
-  else
-    Sample = EnvDisable ? Volume : Envelope;
-end
-
-// Rewind: Save state
-always @(posedge i_rewind_time_to_save) begin
-  if(!i_rewind_enable) begin
-    LenCtr_rewind <= LenCtr;
-    Duty_rewind <= Duty;
-    EnvLoop_rewind <= EnvLoop;
-    EnvDisable_rewind <= EnvDisable;
-    EnvDoReset_rewind <= EnvDoReset;
-    Volume <= Volume;
-    Envelope <= Envelope;
-    EnvDivider_rewind <= EnvDivider;
-    SweepEnable_rewind <= SweepEnable;
-    SweepNegate_rewind <= SweepNegate;
-    SweepReset_rewind <= SweepReset;
-    SweepPeriod_rewind <= SweepPeriod;
-    SweepDivider_rewind <= SweepDivider;
-    SweepShift_rewind <= SweepShift;
-    Period_rewind <= Period;
-    TimerCtr_rewind <= TimerCtr;
-    SeqPos_rewind <= SeqPos;
-    Sample_rewind <= Sample;
+  
+    // Length counter forced to zero if disabled.
+    if (!Enabled)
+      if(i_rewind_enable) begin
+        LenCtr <= LenCtr_rewind;
+      end else begin
+        LenCtr <= 0;
+      end
   end
-end
+
+  reg DutyEnabled;  
+  always @* begin
+    // Determine if the duty is enabled or not
+    case (Duty)
+    0: DutyEnabled = (SeqPos == 7);
+    1: DutyEnabled = (SeqPos >= 6);
+    2: DutyEnabled = (SeqPos >= 4);
+    3: DutyEnabled = (SeqPos < 6);
+    endcase
+
+    // Compute the output
+    if (LenCtr == 0 || !ValidFreq || !DutyEnabled)
+      Sample = 0;
+    else
+      Sample = EnvDisable ? Volume : Envelope;
+  end
+
+  // Rewind: Save state
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      LenCtr_rewind <= LenCtr;
+      Duty_rewind <= Duty;
+      EnvLoop_rewind <= EnvLoop;
+      EnvDisable_rewind <= EnvDisable;
+      EnvDoReset_rewind <= EnvDoReset;
+      Volume <= Volume;
+      Envelope <= Envelope;
+      EnvDivider_rewind <= EnvDivider;
+      SweepEnable_rewind <= SweepEnable;
+      SweepNegate_rewind <= SweepNegate;
+      SweepReset_rewind <= SweepReset;
+      SweepPeriod_rewind <= SweepPeriod;
+      SweepDivider_rewind <= SweepDivider;
+      SweepShift_rewind <= SweepShift;
+      Period_rewind <= Period;
+      TimerCtr_rewind <= TimerCtr;
+      SeqPos_rewind <= SeqPos;
+      Sample_rewind <= Sample;
+    end
+  end
 
 endmodule
 
@@ -964,7 +964,7 @@ wire Sq1NonZero, Sq2NonZero, TriNonZero, NoiNonZero;
 
 // Common input to all channels
 wire [7:0] LenCtr_In;
-LenCtr_Lookup len(DIN[7:3], LenCtr_In);
+LenCtr_Lookup len(DIN[7:3], LenCtr_In, i_rewind_time_to_save, i_rewind_enable);
 
 
 // Frame sequencer registers
@@ -978,11 +978,11 @@ assign odd_or_even = InternalClock;
 
 
 // Generate each channel
-SquareChan   Sq1(clk, ce, reset, 0, ADDR[1:0], DIN, ApuMW0, ClkL, ClkE, Enabled[0], LenCtr_In, Sq1Sample, Sq1NonZero);
-SquareChan   Sq2(clk, ce, reset, 1, ADDR[1:0], DIN, ApuMW1, ClkL, ClkE, Enabled[1], LenCtr_In, Sq2Sample, Sq2NonZero);
-TriangleChan Tri(clk, ce, reset, ADDR[1:0], DIN, ApuMW2, ClkL, ClkE, Enabled[2], LenCtr_In, TriSample, TriNonZero);
-NoiseChan    Noi(clk, ce, reset, ADDR[1:0], DIN, ApuMW3, ClkL, ClkE, Enabled[3], LenCtr_In, NoiSample, NoiNonZero);
-DmcChan      Dmc(clk, ce, reset, odd_or_even, ADDR[2:0], DIN, ApuMW4, DmcSample, DmaReq, DmaAck, DmaAddr, DmaData, DmcIrq, IsDmcActive);
+SquareChan   Sq1(clk, ce, reset, 0, ADDR[1:0], DIN, ApuMW0, ClkL, ClkE, Enabled[0], LenCtr_In, Sq1Sample, Sq1NonZero, i_rewind_time_to_save, i_rewind_enable);
+SquareChan   Sq2(clk, ce, reset, 1, ADDR[1:0], DIN, ApuMW1, ClkL, ClkE, Enabled[1], LenCtr_In, Sq2Sample, Sq2NonZero, i_rewind_time_to_save, i_rewind_enable);
+TriangleChan Tri(clk, ce, reset, ADDR[1:0], DIN, ApuMW2, ClkL, ClkE, Enabled[2], LenCtr_In, TriSample, TriNonZero, i_rewind_time_to_save, i_rewind_enable);
+NoiseChan    Noi(clk, ce, reset, ADDR[1:0], DIN, ApuMW3, ClkL, ClkE, Enabled[3], LenCtr_In, NoiSample, NoiNonZero, i_rewind_time_to_save, i_rewind_enable);
+DmcChan      Dmc(clk, ce, reset, odd_or_even, ADDR[2:0], DIN, ApuMW4, DmcSample, DmaReq, DmaAck, DmaAddr, DmaData, DmcIrq, IsDmcActive, i_rewind_time_to_save, i_rewind_enable);
 
 // Reading this register clears the frame interrupt flag (but not the DMC interrupt flag).
 // If an interrupt flag was set at the same moment of the read, it will read back as 1 but it will not be cleared.
@@ -1132,7 +1132,10 @@ ApuLookupTable lookup(clk,
                       (audio_channels[2] ? {4'b0, TriSample} + {3'b0, TriSample, 1'b0} : 8'b0) + 
                       (audio_channels[3] ? {3'b0, NoiSample, 1'b0} : 8'b0) +
                       (audio_channels[4] ? {1'b0, DmcSample} : 8'b0),
-                      Sample);
+                      Sample,
+                      i_rewind_time_to_save, 
+                      i_rewind_enable
+                      );
 
 wire frame_irq = FrameInterrupt && !DisableFrameInterrupt;
 
