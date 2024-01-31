@@ -64,6 +64,12 @@ module GameLoader(
 
   assign mapper_flags = {16'b0, has_chr_ram, ines[6][0], chr_size, prg_size, mapper};
 
+  // RAM buffers
+  parameter NES_CARTRIDGE_RAM_SIZE = 8 * 1024;
+  parameter NES_INTERNAL_RAM_SIZE = 2 * 1024;
+  parameter NES_TOTAL_RAM_SIZE = NES_CARTRIDGE_RAM_SIZE + NES_INTERNAL_RAM_SIZE;
+  reg [13:0] rewind_RAM_buffer[7:0];
+
   // Rewind: Save state
   reg [2:0] state_rewind = 0;
   reg [7:0] prgsize_rewind;
@@ -86,7 +92,7 @@ module GameLoader(
       mem_refresh_rewind <= mem_refresh;
     end
   end
-
+  
   always @(posedge clk) begin
     if (reset) begin
       state <= 0;
@@ -104,28 +110,38 @@ module GameLoader(
         done <= done_rewind;
       end else begin
         case(state)
-        // Read 16 bytes of ines header
-        0: if (indata_clk) begin
-            ctr <= ctr + 1;
-            ines[ctr] <= indata;
-            bytes_left <= {prgrom, 14'b0};           // Each prgrom is 16KB
-            if (ctr == 4'b1111)
-              state <= (ines[0] == 8'h4E) && (ines[1] == 8'h45) && (ines[2] == 8'h53) && (ines[3] == 8'h1A) && !ines[6][2] && !ines[6][3] ? 1 : 5;
-          end
-        1, 2: begin // Read the next |bytes_left| bytes into |mem_addr|
-            if (bytes_left != 0) begin
-              if (indata_clk) begin
-                bytes_left <= bytes_left - 1;
-                mem_addr <= mem_addr + 1;
-              end
-            end else if (state == 1) begin
-              state <= 2;
-              mem_addr <= 22'b10_0000_0000_0000_0000_0000;
-              bytes_left <= {1'b0, chrrom, 13'b0};      // Each chrrom is 8KB
-            end else if (state == 2) begin
-              done <= 1;
+          // Read 16 bytes of ines header
+          0: 
+            if (indata_clk) begin
+              ctr <= ctr + 1;
+              ines[ctr] <= indata;
+              bytes_left <= {prgrom, 14'b0};           // Each prgrom is 16KB
+              if (ctr == 4'b1111)
+                state <= (ines[0] == 8'h4E) && (ines[1] == 8'h45) && (ines[2] == 8'h53) && (ines[3] == 8'h1A) && !ines[6][2] && !ines[6][3] ? 1 : 5;
             end
-          end
+          // Read the next | bytes_left | bytes into | mem_addr |
+          1, 2: begin 
+              if (bytes_left != 0) begin
+                if (indata_clk) begin
+                  if( ( (mem_addr >= 'h6000) && (mem_addr <= 'h7FFF) ) ||( (mem_addr >= 'h0000) && (mem_addr <= 'h07FF) ) ) begin
+                    // Save into RAM buffer
+                    if(mem_addr >= 'h6000) begin
+                      rewind_RAM_buffer[mem_addr - 'h0800] = mem_data;
+                    end else begin
+                      rewind_RAM_buffer[mem_addr] = mem_data;
+                    end
+                  end
+                  bytes_left <= bytes_left - 1;
+                  mem_addr <= mem_addr + 1;
+                end
+              end else if (state == 1) begin
+                state <= 2;
+                mem_addr <= 22'b10_0000_0000_0000_0000_0000;
+                bytes_left <= {1'b0, chrrom, 13'b0};      // Each chrrom is 8KB
+              end else if (state == 2) begin
+                done <= 1;
+              end
+            end
         endcase
       end
     end

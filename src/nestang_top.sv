@@ -170,8 +170,11 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire loader_clk;
   wire loader_reset = ~sys_resetn;
   GameData game_data(
-        .clk(clk), .reset(~sys_resetn), .start(1'b1), 
-        .odata(loader_input), .odata_clk(loader_clk));
+                      .clk(clk), 
+                      .reset(~sys_resetn), 
+                      .start(1'b1), 
+                      .odata(loader_input), 
+                      .odata_clk(loader_clk));
 `else
   // Dynamic game loading from UART
   wire [7:0] loader_input = sd_dout_valid ? sd_dout : uart_data;
