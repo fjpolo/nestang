@@ -1706,23 +1706,29 @@ module MapperN106(input clk, input ce, input reset,
 endmodule
 
 module MultiMapper(
-                   input clk, input ce, input ppu_ce, input reset,
+                   input clk,
+                   input ce,
+                   input ppu_ce,
+                   input reset,
                    input [19:0] ppuflags,                           // Misc flags from PPU for MMC5 cheating
                    input [31:0] flags,                              // Misc flags from ines header {prg_size(3), chr_size(3), mapper(8)}
-                   input [15:0] prg_ain, output reg [21:0] prg_aout,// PRG Input / Output Address Lines
+                   input [15:0] prg_ain, output [21:0] o_prg_aout,  // PRG Input / Output Address Lines
                    input prg_read, prg_write,                       // PRG Read / write signals
-                   input [7:0] prg_din, output reg [7:0] prg_dout,  // PRG Data
+                   input [7:0] prg_din, output [7:0] o_prg_dout,    // PRG Data
                    input [7:0] prg_from_ram,                        // PRG Data from RAM
-                   output reg prg_allow,                            // PRG Allow write access
+                   output o_prg_allow,                              // PRG Allow write access
                    input chr_read,                                  // Read from CHR
-                   input [13:0] chr_ain, output reg [21:0] chr_aout,// CHR Input / Output Address Lines
-                   output reg [7:0] chr_dout,                       // Value to override CHR data with
-                   output reg has_chr_dout,                         // True if CHR data should be overridden
-                   output reg chr_allow,                            // CHR Allow write
-                   output reg vram_a10,                             // CHR Value for A10 address line
-                   output reg vram_ce,                              // CHR True if the address should be routed to the internal 2kB VRAM.
-                   output reg irq,
-                   output reg [15:0] audio                          // External Audio
+                   input [13:0] chr_ain, output [21:0] o_chr_aout,  // CHR Input / Output Address Lines
+                   output [7:0] o_chr_dout,                       // Value to override CHR data with
+                   output o_has_chr_dout,                         // True if CHR data should be overridden
+                   output o_chr_allow,                            // CHR Allow write
+                   output o_vram_a10,                             // CHR Value for A10 address line
+                   output o_vram_ce,                              // CHR True if the address should be routed to the internal 2kB VRAM.
+                   output o_irq,
+                   output [15:0] audio,                            // External Audio
+                   // Rewind
+                   input i_rewind_time_to_save,
+                   input i_rewind_enable
                   );
   wire mmc0_prg_allow, mmc0_vram_a10, mmc0_vram_ce, mmc0_chr_allow;
   wire [21:0] mmc0_prg_addr, mmc0_chr_addr;
@@ -1841,88 +1847,164 @@ module MultiMapper(
   reg [5:0] prg_mask;
   reg [6:0] chr_mask;
 
+  reg [21:0] prg_aout;
+  reg [7:0] prg_dout;
+  reg prg_allow;
+  reg [21:0] chr_aout;
+  reg [7:0] chr_dout;
+  reg has_chr_dout;
+  reg chr_allow;
+  reg vram_a10;
+  reg vram_ce;
+  reg irq;
+  reg [15:0] audio;
+
+
+  // Rewind: Save state
+  reg [5:0] prg_mask_rewind;
+  reg [6:0] chr_mask_rewind;
+  reg [21:0] prg_aout_rewind;
+  reg [7:0] prg_dout_rewind;
+  reg prg_allow_rewind;
+  reg [21:0] chr_aout_rewind;
+  reg [7:0] chr_dout_rewind;
+  reg has_chr_dout_rewind;
+  reg chr_allow_rewind;
+  reg vram_a10_rewind;
+  reg vram_ce_rewind;
+  reg irq_rewind;
+  reg [15:0] audio_rewind;
+
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      prg_mask_rewind <= prg_mask;
+      chr_mask_rewind <= chr_mask;
+      prg_dout_rewind <= prg_dout;
+      chr_dout_rewind <= chr_dout;
+      prg_aout_rewind <= prg_aout;
+      chr_aout_rewind <= chr_aout;
+      audio_rewind <= audio;
+      has_chr_dout_rewind <= has_chr_dout;
+      prg_allow_rewind <= prg_allow;
+      chr_allow_rewind <= chr_allow;
+      vram_a10_rewind <= vram_a10;
+      vram_ce_rewind <= vram_ce;
+      irq_rewind <= irq;
+    end
+  end
+
+  assign o_prg_aout = prg_aout;
+  assign o_prg_dout = prg_dout;
+  assign o_chr_aout = chr_aout;
+  assign o_chr_dout = chr_dout;
+  assign o_audio = audio;
+  assign o_prg_allow = prg_allow;
+  assign o_has_chr_dout = has_chr_dout;
+  assign o_chr_allow = chr_allow;
+  assign o_vram_a10 = vram_a10;
+  assign o_vram_ce = vram_ce;
+  assign o_irq = irq;
+
+
+
   always @* begin
-    case(flags[10:8])
-    0: prg_mask = 6'b000000;
-    1: prg_mask = 6'b000001;
-    2: prg_mask = 6'b000011;
-    3: prg_mask = 6'b000111;
-    4: prg_mask = 6'b001111;
-    5: prg_mask = 6'b011111;
-    default: prg_mask = 6'b111111;
-    endcase
+    if(i_rewind_enable) begin
+      prg_mask <= prg_mask_rewind;
+      chr_mask <= chr_mask_rewind;
+      prg_dout <= prg_dout_rewind;
+      chr_dout <= chr_dout_rewind;
+      prg_aout <= prg_aout_rewind;
+      chr_aout <= chr_aout_rewind;
+      audio <= audio_rewind;
+      has_chr_dout <= has_chr_dout_rewind;
+      prg_allow <= prg_allow_rewind;
+      chr_allow <= chr_allow_rewind;
+      vram_a10 <= vram_a10_rewind;
+      vram_ce <= vram_ce_rewind;
+      irq <= irq_rewind;
+    end else begin
+      case(flags[10:8])
+        0: prg_mask = 6'b000000;
+        1: prg_mask = 6'b000001;
+        2: prg_mask = 6'b000011;
+        3: prg_mask = 6'b000111;
+        4: prg_mask = 6'b001111;
+        5: prg_mask = 6'b011111;
+      default: prg_mask = 6'b111111;
+      endcase
 
-    case(flags[13:11])
-    0: chr_mask = 7'b0000000;
-    1: chr_mask = 7'b0000001;
-    2: chr_mask = 7'b0000011;
-    3: chr_mask = 7'b0000111;
-    4: chr_mask = 7'b0001111;
-    5: chr_mask = 7'b0011111;
-    6: chr_mask = 7'b0111111;
-    7: chr_mask = 7'b1111111;
-    endcase
-    
-    irq = 0;
-    prg_dout = 8'hff;
-    has_chr_dout = 0;
-    chr_dout = mmc5_chr_dout;
-    audio = 16'h0000;
-        
-    case(flags[7:0])
-    1:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {mmc1_prg_addr, mmc1_prg_allow, mmc1_chr_addr, mmc1_vram_a10, mmc1_vram_ce, mmc1_chr_allow};
-    9:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {mmc2_prg_addr, mmc2_prg_allow, mmc2_chr_addr, mmc2_vram_a10, mmc2_vram_ce, mmc2_chr_allow};
-    118, // TxSROM connects A17 to CIRAM A10.
-    119, // TQROM  uses the Nintendo MMC3 like other TxROM boards but uses the CHR bank number specially.
-    47,  // Mapper 047 is a MMC3 multicart
-    4:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {mmc3_prg_addr, mmc3_prg_allow, mmc3_chr_addr, mmc3_vram_a10, mmc3_vram_ce, mmc3_chr_allow, mmc3_irq};
+      case(flags[13:11])
+        0: chr_mask = 7'b0000000;
+        1: chr_mask = 7'b0000001;
+        2: chr_mask = 7'b0000011;
+        3: chr_mask = 7'b0000111;
+        4: chr_mask = 7'b0001111;
+        5: chr_mask = 7'b0011111;
+        6: chr_mask = 7'b0111111;
+        7: chr_mask = 7'b1111111;
+      endcase
+      
+      irq = 0;
+      prg_dout = 8'hff;
+      has_chr_dout = 0;
+      chr_dout = mmc5_chr_dout;
+      audio = 16'h0000;
+          
+      case(flags[7:0])
+        1:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {mmc1_prg_addr, mmc1_prg_allow, mmc1_chr_addr, mmc1_vram_a10, mmc1_vram_ce, mmc1_chr_allow};
+        9:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {mmc2_prg_addr, mmc2_prg_allow, mmc2_chr_addr, mmc2_vram_a10, mmc2_vram_ce, mmc2_chr_allow};
+        118, // TxSROM connects A17 to CIRAM A10.
+        119, // TQROM  uses the Nintendo MMC3 like other TxROM boards but uses the CHR bank number specially.
+        47,  // Mapper 047 is a MMC3 multicart
+        4:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {mmc3_prg_addr, mmc3_prg_allow, mmc3_chr_addr, mmc3_vram_a10, mmc3_vram_ce, mmc3_chr_allow, mmc3_irq};
 
-    5:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, has_chr_dout, prg_dout, irq} = {mmc5_prg_addr, mmc5_prg_allow, mmc5_chr_addr, mmc5_vram_a10, mmc5_vram_ce, mmc5_chr_allow, mmc5_has_chr_dout, mmc5_prg_dout, mmc5_irq};
+        5:  {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, has_chr_dout, prg_dout, irq} = {mmc5_prg_addr, mmc5_prg_allow, mmc5_chr_addr, mmc5_vram_a10, mmc5_vram_ce, mmc5_chr_allow, mmc5_has_chr_dout, mmc5_prg_dout, mmc5_irq};
 
-    0,
-    2,
-    3,
-    7,
-    28: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map28_prg_addr, map28_prg_allow, map28_chr_addr, map28_vram_a10, map28_vram_ce, map28_chr_allow};
+        0,
+        2,
+        3,
+        7,
+        28: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map28_prg_addr, map28_prg_allow, map28_chr_addr, map28_vram_a10, map28_vram_ce, map28_chr_allow};
 
-    13: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map13_prg_addr, map13_prg_allow, map13_chr_addr, map13_vram_a10, map13_vram_ce, map13_chr_allow};
-    15: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map15_prg_addr, map15_prg_allow, map15_chr_addr, map15_vram_a10, map15_vram_ce, map15_chr_allow};
+        13: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map13_prg_addr, map13_prg_allow, map13_chr_addr, map13_vram_a10, map13_vram_ce, map13_chr_allow};
+        15: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map15_prg_addr, map15_prg_allow, map15_chr_addr, map15_vram_a10, map15_vram_ce, map15_chr_allow};
 
 
-    19: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {map19_prg_addr, map19_prg_allow, map19_chr_addr, map19_vram_a10, map19_vram_ce, map19_chr_allow, map19_prg_dout, map19_irq, map19_audio};
-    24, 26: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {vrc6_prg_addr, vrc6_prg_allow, vrc6_chr_addr, vrc6_vram_a10, vrc6_vram_ce, vrc6_chr_allow, vrc6_prg_dout, vrc6_irq, vrc6_audio}; 
+        19: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {map19_prg_addr, map19_prg_allow, map19_chr_addr, map19_vram_a10, map19_vram_ce, map19_chr_allow, map19_prg_dout, map19_irq, map19_audio};
+        24, 26: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {vrc6_prg_addr, vrc6_prg_allow, vrc6_chr_addr, vrc6_vram_a10, vrc6_vram_ce, vrc6_chr_allow, vrc6_prg_dout, vrc6_irq, vrc6_audio}; 
 
-    34: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map34_prg_addr, map34_prg_allow, map34_chr_addr, map34_vram_a10, map34_vram_ce, map34_chr_allow};
-    41: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map41_prg_addr, map41_prg_allow, map41_chr_addr, map41_vram_a10, map41_vram_ce, map41_chr_allow};
+        34: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map34_prg_addr, map34_prg_allow, map34_chr_addr, map34_vram_a10, map34_vram_ce, map34_chr_allow};
+        41: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map41_prg_addr, map41_prg_allow, map41_chr_addr, map41_vram_a10, map41_vram_ce, map41_chr_allow};
 
-    64,
-    158: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {rambo1_prg_addr, rambo1_prg_allow, rambo1_chr_addr, rambo1_vram_a10, rambo1_vram_ce, rambo1_chr_allow, rambo1_irq};
+        64,
+        158: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {rambo1_prg_addr, rambo1_prg_allow, rambo1_chr_addr, rambo1_vram_a10, rambo1_vram_ce, rambo1_chr_allow, rambo1_irq};
 
-    11,
-    66: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map66_prg_addr, map66_prg_allow, map66_chr_addr, map66_vram_a10, map66_vram_ce, map66_chr_allow};
-    68: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map68_prg_addr, map68_prg_allow, map68_chr_addr, map68_vram_a10, map68_vram_ce, map68_chr_allow};
-    69: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {map69_prg_addr, map69_prg_allow, map69_chr_addr, map69_vram_a10, map69_vram_ce, map69_chr_allow, map69_irq, map69_audio};
+        11,
+        66: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map66_prg_addr, map66_prg_allow, map66_chr_addr, map66_vram_a10, map66_vram_ce, map66_chr_allow};
+        68: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map68_prg_addr, map68_prg_allow, map68_chr_addr, map68_vram_a10, map68_vram_ce, map68_chr_allow};
+        69: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq} = {map69_prg_addr, map69_prg_allow, map69_chr_addr, map69_vram_a10, map69_vram_ce, map69_chr_allow, map69_irq, map69_audio};
 
-    71,
-    232: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map71_prg_addr, map71_prg_allow, map71_chr_addr, map71_vram_a10, map71_vram_ce, map71_chr_allow};
+        71,
+        232: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map71_prg_addr, map71_prg_allow, map71_chr_addr, map71_vram_a10, map71_vram_ce, map71_chr_allow};
 
-    79,
-    113: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map79_prg_addr, map79_prg_allow, map79_chr_addr, map79_vram_a10, map79_vram_ce, map79_chr_allow};
+        79,
+        113: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map79_prg_addr, map79_prg_allow, map79_chr_addr, map79_vram_a10, map79_vram_ce, map79_chr_allow};
 
-    105: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq}= {nesev_prg_addr, mmc1_prg_allow, nesev_chr_addr, mmc1_vram_a10, mmc1_vram_ce, mmc1_chr_allow, nesev_irq};
+        105: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, irq}= {nesev_prg_addr, mmc1_prg_allow, nesev_chr_addr, mmc1_vram_a10, mmc1_vram_ce, mmc1_chr_allow, nesev_irq};
 
-    228: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map228_prg_addr, map228_prg_allow, map228_chr_addr, map228_vram_a10, map228_vram_ce, map228_chr_allow};
-    234: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map234_prg_addr, map234_prg_allow, map234_chr_addr, map234_vram_a10, map234_vram_ce, map234_chr_allow};
-    default: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow} = {mmc0_prg_addr, mmc0_prg_allow, mmc0_chr_addr, mmc0_vram_a10, mmc0_vram_ce, mmc0_chr_allow};
-    endcase
-    if (prg_aout[21:20] == 2'b00)
-      prg_aout[19:0] = {prg_aout[19:14] & prg_mask, prg_aout[13:0]};
-    if (chr_aout[21:20] == 2'b10)
-      chr_aout[19:0] = {chr_aout[19:13] & chr_mask, chr_aout[12:0]};
-    // Remap the CHR address into VRAM, if needed.
-    chr_aout = vram_ce ? {11'b11_0000_0000_0, vram_a10, chr_ain[9:0]} : chr_aout;
-    prg_aout = (prg_ain < 'h2000) ? {11'b11_1000_0000_0, prg_ain[10:0]} : prg_aout;
-    prg_allow = prg_allow || (prg_ain < 'h2000);
+        228: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map228_prg_addr, map228_prg_allow, map228_chr_addr, map228_vram_a10, map228_vram_ce, map228_chr_allow};
+        234: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}     = {map234_prg_addr, map234_prg_allow, map234_chr_addr, map234_vram_a10, map234_vram_ce, map234_chr_allow};
+        default: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow} = {mmc0_prg_addr, mmc0_prg_allow, mmc0_chr_addr, mmc0_vram_a10, mmc0_vram_ce, mmc0_chr_allow};
+      endcase
+      if (prg_aout[21:20] == 2'b00)
+        prg_aout[19:0] = {prg_aout[19:14] & prg_mask, prg_aout[13:0]};
+      if (chr_aout[21:20] == 2'b10)
+        chr_aout[19:0] = {chr_aout[19:13] & chr_mask, chr_aout[12:0]};
+      // Remap the CHR address into VRAM, if needed.
+      chr_aout = vram_ce ? {11'b11_0000_0000_0, vram_a10, chr_ain[9:0]} : chr_aout;
+      prg_aout = (prg_ain < 'h2000) ? {11'b11_1000_0000_0, prg_ain[10:0]} : prg_aout;
+      prg_allow = prg_allow || (prg_ain < 'h2000);
+    end
   end
 endmodule
 

@@ -439,7 +439,9 @@ module NES(
                             vram_a10,
                             vram_ce,
                             mapper_irq,
-                            sample_ext
+                            sample_ext,
+                            rewind_time_to_save,
+                            i_rewind_enable
                          );
   assign chr_to_ppu = has_chr_from_ppu_mapper ? chr_from_ppu_mapper : memory_din_ppu;
                              
