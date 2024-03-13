@@ -237,6 +237,25 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
         .o_data_available(NES_gamepad_data_available2)
                         );
 
+  // HVC-007
+  wire [7:0] usb_key_modifiers;
+  wire [7:0] usb_key1, usb_key2, usb_key3, usb_key4;
+  reg [7:0] NES_register_4016;
+  reg [7:0] NES_register_4017;
+
+  HVC007Keyboard Keyboard(
+    .i_clk(sys_clk),
+    .i_ce(0), // Hardcoded
+    .i_reset(sys_resetn),
+    .i_usb_key_modifiers(usb_key_modifiers),
+    .i_usb_key1(usb_key1),
+    .i_usb_key2(usb_key2),
+    .i_usb_key3(usb_key3),
+    .i_usb_key4(usb_key4),
+    .i_register_4016(NES_register_4016),
+    .o_register_4017(NES_register_4017)
+  );
+
   // Joypad handling
   always @(posedge clk) begin
     if (joypad_strobe) begin
@@ -430,8 +449,13 @@ usb_hid_host usb_controller (
     .game_l(usb_btn[6]), .game_r(usb_btn[7]), .game_u(usb_btn[4]), .game_d(usb_btn[5]), 
     .game_a(usb_btn[0]), .game_b(usb_btn[1]), .game_x(usb_btn_x), .game_y(usb_btn_y), 
     .game_sel(usb_btn[2]), .game_sta(usb_btn[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
+    // Keyboard input - TO be mapped to HVC-007 standard
+    .key_modifiers(usb_key_modifiers),
+    .key1(usb_key1),
+    .key2(usb_key2),
+    .key3(usb_key3),
+    .key4(usb_key4),
+    // ignore mouse input
     .mouse_btn(), .mouse_dx(), .mouse_dy(),
     .dbg_hid_report()
 );

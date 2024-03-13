@@ -8,6 +8,7 @@
         <File path="src/tang_nano_20k/config.sv" type="file.verilog" enable="1"/>
         <File path="src/NESgamepad/NESGamepad.v" type="file.verilog" enable="1"/>
         <File path="src/MicroCode.v" type="file.verilog" enable="1"/>
+        <File path="src/HVC007Keyboard/HVC007Keyboard.v" type="file.verilog" enable="1"/>
         <File path="src/apu.v" type="file.verilog" enable="1"/>
         <File path="src/autofire.v" type="file.verilog" enable="1"/>
         <File path="src/compat.v" type="file.verilog" enable="1"/>
@@ -27,6 +28,7 @@
         <File path="src/hdmi2/tmds_channel.sv" type="file.verilog" enable="1"/>
         <File path="src/hw_sound.v" type="file.verilog" enable="1"/>
         <File path="src/hw_uart.v" type="file.verilog" enable="1"/>
+        <File path="src/mapLoopy.v" type="file.verilog" enable="1"/>
         <File path="src/memory_controller.v" type="file.verilog" enable="1"/>
         <File path="src/mmu.v" type="file.verilog" enable="1"/>
         <File path="src/nes.v" type="file.verilog" enable="1"/>
