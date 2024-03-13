@@ -23,7 +23,8 @@ module HVC007Keyboard(
     input [7:0] i_usb_key4,                 // Scancase #4
     // HVC-007 Keyboard
     input [7:0] i_register_4016,
-    output [7:0] o_register_4017
+    output [7:0] o_register_4017,
+    output [7:0] o_keyboard_buttons
 );
 
 reg [1:0] hvc_column;
@@ -32,6 +33,7 @@ reg [3:0] hvc_current_state_col_0;
 reg [3:0] hvc_current_state_col_1;
 wire read_data_from_column_0;
 wire read_data_from_column_1;
+reg [7:0]keyboard_buttons;
 
 initial hvc_current_state_col_0 = 4'b1111;
 initial hvc_current_state_col_1 = 4'b1111;
@@ -48,6 +50,7 @@ always @(posedge i_clk) begin
             hvc_current_state_col_1 <= 4'b1111;
             hvc_column <= 0;
             hvc_row <= 0;
+            keyboard_buttons <= 8'b1111_1111;
         end else begin
             // Reset - Column0, Row0
             if (i_register_4016 == 8'h05) begin
@@ -55,10 +58,12 @@ always @(posedge i_clk) begin
                 hvc_row <= 0;
                 hvc_current_state_col_0 <= 4'b1111;
                 hvc_current_state_col_1 <= 4'b1111;
+                keyboard_buttons <= 8'b1111_1111;
             // Select column 0, next row if not just reset
             end else if (i_register_4016 == 8'h04) begin
                 // Default state 
                 hvc_current_state_col_0 <= 4'b1111;
+                
                 // Check SHIFT modifier
                 if(i_usb_key_modifiers == 8'hE1 || i_usb_key_modifiers == 8'hE5) begin
                     // Check rows
@@ -74,6 +79,7 @@ always @(posedge i_clk) begin
                             // RETURN
                             end else if( i_usb_key1 == 8'h2A || i_usb_key2 == 8'h2A || i_usb_key3 == 8'h2A || i_usb_key4 == 8'h2A) begin
                                 hvc_current_state_col_0[1] <= 0;
+                                keyboard_buttons[4] <= 0;
                             // [
                             end else if( i_usb_key1 == 8'h5B || i_usb_key2 == 8'h5B || i_usb_key3 == 8'h5B || i_usb_key4 == 8'h5B) begin
                                 hvc_current_state_col_0[2] <= 0;
@@ -191,9 +197,11 @@ always @(posedge i_clk) begin
                             // S
                             end else if( i_usb_key1 == 8'h16 || i_usb_key2 == 8'h16 || i_usb_key3 == 8'h16 || i_usb_key4 == 8'h16) begin
                                 hvc_current_state_col_0[2] <= 0;
+                                keyboard_buttons[6] <= 0;
                             // A
                             end else if( i_usb_key1 == 8'h04 || i_usb_key2 == 8'h04 || i_usb_key3 == 8'h04 || i_usb_key4 == 8'h04) begin
                                 hvc_current_state_col_0[3] <= 0;
+                                keyboard_buttons[7] <= 0;
                             end
                         end
                         7: begin
@@ -223,12 +231,15 @@ always @(posedge i_clk) begin
                             // RIGHT
                             if( i_usb_key1 == 8'(8'h4F || 8'H5E) || i_usb_key2 == 8'(8'H4F || 8'H5E) || i_usb_key3 == 8'(8'H4F || 8'H5E) || i_usb_key4 == 8'(8'H4F || 8'H5E)) begin
                                 hvc_current_state_col_0[0] <= 0;
+                                keyboard_buttons[0] <= 0;
                             // LEFT
                             end else if( i_usb_key1 == 8'(8'H50 || 8'H97) || i_usb_key2 == 8'(8'H50 || 8'H97) || i_usb_key3 == 8'(8'H50 || 8'H97) || i_usb_key4 == 8'(8'H50 || 8'H97)) begin
                                 hvc_current_state_col_0[1] <= 0;
+                                keyboard_buttons[1] <= 0;
                             // UP
                             end else if( i_usb_key1 == (8'h52 || 8'h60) || i_usb_key2 == (8'h52 || 8'h60) || i_usb_key3 == (8'h52 || 8'h60) || i_usb_key4 == (8'h52 || 8'h60)) begin
                                 hvc_current_state_col_0[2] <= 0;
+                                keyboard_buttons[3] <= 0;
                             // CLR HOME
                             end else if( i_usb_key1 == (8'h4a || 8'h5f) || i_usb_key2 == (8'h4a || 8'h5f) || i_usb_key3 == (8'h4a || 8'h5f) || i_usb_key4 == (8'h4a || 8'h5f)) begin
                                 hvc_current_state_col_0[3] <= 0;
@@ -412,9 +423,11 @@ always @(posedge i_clk) begin
                             // SPACE
                             end else if( i_usb_key1 == 8'h2c || i_usb_key2 == 8'h2c || i_usb_key3 == 8'h2c || i_usb_key4 == 8'h2c) begin
                                 hvc_current_state_col_1[2] <= 0;
+                                keyboard_buttons[5] <= 0;
                             // DOWN
                             end else if( i_usb_key1 == (8'h51 || 8'h5a) || i_usb_key2 == (8'h51 || 8'h5a) || i_usb_key3 == (8'h51 || 8'h5a) || i_usb_key4 == (8'h51 || 8'h5a)) begin
                                 hvc_current_state_col_1[3] <= 0;
+                                keyboard_buttons[2] <= 0;
                             end
                         end
                     endcase
@@ -429,5 +442,6 @@ always @(posedge i_clk) begin
 end
 
 assign o_register_4017[4:1] = read_data_from_column_0 ? hvc_current_state_col_0 : (read_data_from_column_1 ? hvc_current_state_col_1 : 4'b1111);
+assign o_keyboard_buttons = keyboard_buttons;
 
 endmodule

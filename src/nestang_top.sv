@@ -242,10 +242,18 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire [7:0] usb_key1, usb_key2, usb_key3, usb_key4;
   reg [7:0] NES_register_4016;
   reg [7:0] NES_register_4017;
+  reg NES_HVC007_enabled;
+  reg [7:0] HVC007_nes_btn;
+  reg [7:0] HVC007_nes_btn2;
+
+  initial HVC007_nes_btn = 8'b1111_1111;
+  initial HVC007_nes_btn2 = 8'b1111_1111;
+
+  initial NES_HVC007_enabled = 1;
 
   HVC007Keyboard Keyboard(
     .i_clk(sys_clk),
-    .i_ce(0), // Hardcoded
+    .i_ce(NES_HVC007_enabled), // Hardcoded
     .i_reset(sys_resetn),
     .i_usb_key_modifiers(usb_key_modifiers),
     .i_usb_key1(usb_key1),
@@ -253,13 +261,14 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
     .i_usb_key3(usb_key3),
     .i_usb_key4(usb_key4),
     .i_register_4016(NES_register_4016),
-    .o_register_4017(NES_register_4017)
+    .o_register_4017(NES_register_4017),
+    .o_keyboard_buttons(HVC007_nes_btn)
   );
 
   // Joypad handling
   always @(posedge clk) begin
     if (joypad_strobe) begin
-      joypad_bits <= loader_btn | nes_btn;
+      joypad_bits <= loader_btn | nes_btn | HVC007_nes_btn;
       joypad_bits2 <= loader_btn_2 | nes_btn2;
     end
     if (!joypad_clock[0] && last_joypad_clock[0])
