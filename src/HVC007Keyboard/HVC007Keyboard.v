@@ -5,6 +5,7 @@
 // - https://www.nesdev.org/wiki/Family_BASIC_Keyboard
 // - http://cmpslv2.starfree.jp/Famic/Fambas.htm
 // - https://www.nesdev.org/wiki/Expansion_port
+// - https://forums.nesdev.org/viewtopic.php?t=23656
 
 module HVC007Keyboard(
 input i_clk,                                // System clock
