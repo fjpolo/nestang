@@ -19,7 +19,7 @@ module nestang_top (
     output UART_TXD,
 
     // LEDs
-    output [1:0] led,
+    output [2:0] led,
 
     // SDRAM
     // For Primer 25K: https://github.com/MiSTer-devel/Hardware_MiSTer/blob/master/releases/sdram_xsds_3.0.pdf
@@ -37,31 +37,11 @@ module nestang_top (
 
     // MicroSD
     output sd_clk,
-    inout sd_cmd,      // MOSI
+    inout sd_cmd,       // MOSI
     input  sd_dat0,     // MISO
     output sd_dat1,     // 1
     output sd_dat2,     // 1
     output sd_dat3,     // 1
-
-    // Dualshock game controller
-    output joystick_clk,
-    output joystick_mosi,
-    input joystick_miso,
-    output reg joystick_cs,
-    output joystick_clk2,
-    output joystick_mosi2,
-    input joystick_miso2,
-    output reg joystick_cs2,
-
-    // USB
-    inout usbdm,
-    inout usbdp,
-`ifndef P25K
-    inout usbdm2,
-    inout usbdp2,
-`endif
-//    output clk_usb,
-
 
     // NES gamepad
 `ifdef N20K
@@ -71,7 +51,13 @@ module nestang_top (
     output NES_gamepad_data_clock2,
     output NES_gampepad_data_latch2,
     input NES_gampead_serial_data2,
-`endif
+    output NES_gamepad_data_clock3,
+    output NES_gampepad_data_latch3,
+    input NES_gampead_serial_data3,
+    output NES_gamepad_data_clock4,
+    output NES_gampepad_data_latch4,
+    input NES_gampead_serial_data4,
+    `endif
 
     // HDMI TX
     output       tmds_clk_n,
@@ -143,6 +129,7 @@ end
   wire [7:0] memory_din_cpu, memory_din_ppu;
   wire [7:0] memory_dout;
   reg [7:0] joypad_bits, joypad_bits2;
+  reg [23:0] joypad_bits_multitap, joypad_bits_multitap2;
   reg [1:0] last_joypad_clock;
   wire [31:0] dbgadr;
   wire [1:0] dbgctr;
@@ -191,32 +178,31 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
       loader_btn_2 <= uart_data;
   end
 
-  /*
-  joy_rx[0:1] dualshock buttons: 0:(L D R U St R3 L3 Se)  1:(□ X O △ R1 L1 R2 L2)
-  nes_btn[0:1] NES buttons:      (R L D U START SELECT B A)
-  O is A, X is B
-  */
-  wire [7:0] joy_rx[0:1], joy_rx2[0:1];     // 6 RX bytes for all button/axis state
-  wire [7:0] usb_btn, usb_btn2;
-  wire usb_btn_x, usb_btn_y, usb_btn_x2, usb_btn_y2;
-  wire usb_conerr, usb_conerr2;
-  wire auto_square, auto_triangle, auto_square2, auto_triangle2;
-  // wire [7:0] nes_btn = usb_btn, nes_btn2 = 0;
+  /* NES buttons */
+  wire [7:0] nes_btn  = NES_gamepad_button_state;
+  wire [7:0] nes_btn2 = NES_gamepad_button_state2;
+  wire [7:0] nes_btn3  = NES_gamepad_button_state3;
+  wire [7:0] nes_btn4  = NES_gamepad_button_state4;
 
-  wire [7:0] nes_btn  = {~joy_rx[0][5], ~joy_rx[0][7], ~joy_rx[0][6], ~joy_rx[0][4], 
-                         ~joy_rx[0][3], ~joy_rx[0][0], ~joy_rx[1][6] | auto_square, ~joy_rx[1][5] | auto_triangle}
-                        | usb_btn
-                        | NES_gamepad_button_state;
-  wire [7:0] nes_btn2 = {~joy_rx2[0][5], ~joy_rx2[0][7], ~joy_rx2[0][6], ~joy_rx2[0][4], 
-                         ~joy_rx2[0][3], ~joy_rx2[0][0], ~joy_rx2[1][6] | auto_square2, ~joy_rx2[1][5] | auto_triangle2}
-                         | usb_btn2
-                         | NES_gamepad_button_state2;
+  /* Multitap support */
+  reg NES_gamepad_is_multitap;
+  initial NES_gamepad_is_multitap = 0;
+  wire NES_gamepad_is_multitap_button;
+  assign NES_gamepad_is_multitap_button = (!nes_btn[6] & !nes_btn[4]);
+
+  always @(posedge NES_gamepad_is_multitap_button) begin
+    NES_gamepad_is_multitap <= ~NES_gamepad_is_multitap;
+  end
 
   // NES gamepad
   wire [7:0]NES_gamepad_button_state;
   wire NES_gamepad_data_available;
   wire [7:0]NES_gamepad_button_state2;
   wire NES_gamepad_data_available2;
+  wire [7:0]NES_gamepad_button_state3;
+  wire NES_gamepad_data_available3;
+  wire [7:0]NES_gamepad_button_state4;
+  wire NES_gamepad_data_available4;
 
 `ifdef N20K
   NESGamepad nes_gamepad(
@@ -240,17 +226,51 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
                         );
 `endif
 
+  NESGamepad nes_gamepad3(
+		.i_clk(clk),
+        .i_rst(sys_resetn),
+		.o_data_clock(NES_gamepad_data_clock3),
+		.o_data_latch(NES_gampepad_data_latch3),
+		.i_serial_data(NES_gampead_serial_data3),
+		.o_button_state(NES_gamepad_button_state3),
+        .o_data_available(NES_gamepad_data_available3)
+                        );
+
+  NESGamepad nes_gamepad4(
+		.i_clk(clk),
+        .i_rst(sys_resetn),
+		.o_data_clock(NES_gamepad_data_cloc4k),
+		.o_data_latch(NES_gampepad_data_latch4),
+		.i_serial_data(NES_gampead_serial_data4),
+		.o_button_state(NES_gamepad_button_state4),
+        .o_data_available(NES_gamepad_data_available4)
+                        );  
+
   // Joypad handling
   always @(posedge clk) begin
-    if (joypad_strobe) begin
-      joypad_bits <= loader_btn | nes_btn;
-      joypad_bits2 <= loader_btn_2 | nes_btn2;
+    if (!NES_gamepad_is_multitap) begin
+        /* Normal 2 gamepads mode */
+        if (joypad_strobe) begin
+          joypad_bits <= nes_btn;
+          joypad_bits2 <= nes_btn2;
+        end
+        if (!joypad_clock[0] && last_joypad_clock[0])
+          joypad_bits <= {1'b0, joypad_bits[7:1]};
+        if (!joypad_clock[1] && last_joypad_clock[1])
+          joypad_bits2 <= {1'b0, joypad_bits2[7:1]};
+        last_joypad_clock <= joypad_clock;
+    end else begin
+        /* Multitap: Four Score mode */
+        if (joypad_strobe) begin
+          joypad_bits_multitap <= {8'b0010_000, nes_btn2, nes_btn};
+          joypad_bits_multitap2 <= {8'b0010_000, nes_btn4, nes_btn3};
+        end
+        if (!joypad_clock[0] && last_joypad_clock[0])
+          joypad_bits_multitap <= {1'b0, joypad_bits_multitap[23:1]};
+        if (!joypad_clock[1] && last_joypad_clock[1])
+          joypad_bits_multitap2 <= {1'b0, joypad_bits_multitap2[23:1]};
+        last_joypad_clock <= joypad_clock;
     end
-    if (!joypad_clock[0] && last_joypad_clock[0])
-      joypad_bits <= {1'b0, joypad_bits[7:1]};
-    if (!joypad_clock[1] && last_joypad_clock[1])
-      joypad_bits2 <= {1'b0, joypad_bits2[7:1]};
-    last_joypad_clock <= joypad_clock;
   end
 
   wire [21:0] loader_addr;
@@ -334,7 +354,7 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
           clk, reset_nes, run_nes,
           mapper_flags,
           sample, color,
-          joypad_strobe, joypad_clock, {joypad_bits2[0], joypad_bits[0]},
+          joypad_strobe, joypad_clock, (NES_gamepad_is_multitap ? {joypad_bits_multitap2[0], joypad_bits_multitap[0]}: {joypad_bits2[0], joypad_bits[0]}),
           SW[4:0],
           memory_addr,
           memory_read_cpu, memory_din_cpu,
@@ -396,62 +416,6 @@ SDLoader #(.FREQ(FREQ)) sd_loader (
 
     .debug_reg(sd_debug_reg), .debug_out(sd_debug_out)
 );
-
-// Dualshock controller
-dualshock_controller controller (
-    .clk(clk), .I_RSTn(1'b1),
-    .O_psCLK(joystick_clk), .O_psSEL(joystick_cs), .O_psTXD(joystick_mosi),
-    .I_psRXD(joystick_miso),
-    .O_RXD_1(joy_rx[0]), .O_RXD_2(joy_rx[1]), .O_RXD_3(),
-    .O_RXD_4(), .O_RXD_5(), .O_RXD_6(),
-    // config=1, mode=1(analog), mode_en=1
-    .I_CONF_SW(1'b0), .I_MODE_SW(1'b1), .I_MODE_EN(1'b0),
-    .I_VIB_SW(2'b00)     // no vibration
-);
-
-dualshock_controller controller2 (
-    .clk(clk), .I_RSTn(1'b1),
-    .O_psCLK(joystick_clk2), .O_psSEL(joystick_cs2), .O_psTXD(joystick_mosi2),
-    .I_psRXD(joystick_miso2),
-    .O_RXD_1(joy_rx2[0]), .O_RXD_2(joy_rx2[1]), 
-    .O_RXD_3(), .O_RXD_4(), .O_RXD_5(), .O_RXD_6(),
-    .I_CONF_SW(1'b0), .I_MODE_SW(1'b1), .I_MODE_EN(1'b0),
-    .I_VIB_SW(2'b00)     // no vibration
-);
-
-Autofire af_square (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx[1][7] | usb_btn_y), .out(auto_square));            // B
-Autofire af_triangle (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx[1][4] | usb_btn_x), .out(auto_triangle));        // A
-Autofire af_square2 (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx2[1][7] | usb_btn_y2), .out(auto_square2));
-Autofire af_triangle2 (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx2[1][4] | usb_btn_x2), .out(auto_triangle2));
-
-//   usb_btn:      (R L D U START SELECT B A)
-wire [1:0] usb_type, usb_type2;
-wire usb_report, usb_report2;
-usb_hid_host usb_controller (
-    .usbclk(clk_usb), .usbrst_n(sys_resetn),
-    .usb_dm(usbdm), .usb_dp(usbdp),	.typ(usb_type), .report(usb_report), 
-    .game_l(usb_btn[6]), .game_r(usb_btn[7]), .game_u(usb_btn[4]), .game_d(usb_btn[5]), 
-    .game_a(usb_btn[0]), .game_b(usb_btn[1]), .game_x(usb_btn_x), .game_y(usb_btn_y), 
-    .game_sel(usb_btn[2]), .game_sta(usb_btn[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
-    .mouse_btn(), .mouse_dx(), .mouse_dy(),
-    .dbg_hid_report()
-);
-
-`ifndef P25K
-usb_hid_host usb_controller2 (
-    .usbclk(clk_usb), .usbrst_n(sys_resetn),
-    .usb_dm(usbdm2), .usb_dp(usbdp2),	.typ(usb_type2), .report(usb_report2), 
-    .game_l(usb_btn2[6]), .game_r(usb_btn2[7]), .game_u(usb_btn2[4]), .game_d(usb_btn2[5]), 
-    .game_a(usb_btn2[0]), .game_b(usb_btn2[1]), .game_x(usb_btn_x2), .game_y(usb_btn_y2), 
-    .game_sel(usb_btn2[2]), .game_sta(usb_btn2[3]),
-    // ignore keyboard and mouse input
-    .key_modifiers(), .key1(), .key2(), .key3(), .key4(),
-    .mouse_btn(), .mouse_dx(), .mouse_dy(),
-    .dbg_hid_report()
-);
-`endif
 
 //
 // Print control
@@ -674,6 +638,7 @@ end
 
 reg [23:0] led_cnt;
 always @(posedge clk) led_cnt <= led_cnt + 1;
-assign led = {led_cnt[23], led_cnt[22]};
+assign led[1:0] = {led_cnt[23], led_cnt[22]};
+assign led[2] = NES_gamepad_is_multitap;
 
 endmodule
