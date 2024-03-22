@@ -1681,6 +1681,63 @@ module MapperN106(input clk, input ce, input reset,
 
 endmodule
 
+//
+//  - Famicom Disk System
+//
+// References:
+//
+// - https://github.com/MiSTer-devel/NES_MiSTer/pull/8/files
+module MapperFDS(input clk, input ce, input reset,
+                 input [31:0] flags,
+                 input [15:0] prg_ain, output [21:0] prg_aout,
+                 input prg_read, prg_write,                   // Read / write signals
+                 input [7:0] prg_din, output [7:0] prg_dout,
+                 output prg_allow,                          // Enable access to memory for the specified operation.
+                 input [13:0] chr_ain, output [21:0] chr_aout,
+                 output chr_allow,                             // Allow write
+                 output vram_a10,                              // Value for A10 address line
+                 output vram_ce,                               // True if the address should be routed to the internal 2kB VRAM.
+                 output irq,
+                 output [15:0] audio,
+					  input fds_swap);
+	 wire nesprg_oe;
+    wire [7:0] neschrdout;
+	 wire neschr_oe;
+	 wire wram_oe;
+	 wire wram_we;
+	 wire prgram_we;
+	 wire chrram_oe;
+	 wire prgram_oe;
+	 wire exp6;
+	 reg [7:0] m2;
+	 wire m2_n = 1;//~ce;  //m2_n not used as clk.  Invert m2 (ce).
+  always @(posedge clk) begin
+    m2[7:1] <= m2[6:0];
+	 m2[0] <= ce;
+  end
+
+//module MAPFDS(              //signal descriptions in powerpak.v
+//    input m2, input m2_n, input clk20, input reset, input nesprg_we, output nesprg_oe, input neschr_rd,
+//    input neschr_wr, input [15:0] prgain, input [13:0] chrain, input [7:0] nesprgdin, input [7:0] ramprgdin, output reg [7:0] nesprgdout,
+//    output [7:0] neschrdout, output neschr_oe, output chrram_we, output chrram_oe, output wram_oe, output wram_we, output prgram_we,
+//    output prgram_oe, output [18:10] ramchraout, output [18:13] ramprgaout, output irq, output ciram_ce, output exp6,
+//    input cfg_boot, input [18:12] cfg_chrmask, input [18:13] cfg_prgmask, input cfg_vertical, input cfg_fourscreen, input cfg_chrram,
+//    input ce, output prg_allow, output [11:0] snd_level);
+    MAPFDS fds(m2[7], m2_n, clk, reset, prg_write, nesprg_oe, 0, 
+		1, prg_ain, chr_ain, prg_din, 8'b0, prg_dout,
+		neschrdout, neschr_oe, chr_allow, chrram_oe, wram_oe, wram_we, prgram_we,
+		prgram_oe, chr_aout[18:10], prg_aout[18:13], irq, vram_ce, exp6, 
+		0, 7'b1111111, 6'b111111, flags[14], flags[16], flags[15],
+		ce, fds_swap, prg_allow, audio[15:4]);
+    assign chr_aout[21:19] = 3'b100;
+    assign chr_aout[9:0] = chr_ain[9:0];
+	 assign vram_a10 = chr_aout[10];
+    assign prg_aout[21:19] = 3'b000;
+    assign prg_aout[12:0] = prg_ain[12:0];
+    assign audio[3:0] = 4'b0;
+
+endmodule
+
 module MultiMapper(
                    input clk, input ce, input ppu_ce, input reset,
                    input [19:0] ppuflags,                           // Misc flags from PPU for MMC5 cheating
@@ -1698,7 +1755,8 @@ module MultiMapper(
                    output reg vram_a10,                             // CHR Value for A10 address line
                    output reg vram_ce,                              // CHR True if the address should be routed to the internal 2kB VRAM.
                    output reg irq,
-                   output reg [15:0] audio                          // External Audio
+                   output reg [15:0] audio,                         // External Audio
+                   input fds_swap                                   // FDS Disk Swap Pause
                   );
   wire mmc0_prg_allow, mmc0_vram_a10, mmc0_vram_ce, mmc0_chr_allow;
   wire [21:0] mmc0_prg_addr, mmc0_chr_addr;
@@ -1756,6 +1814,14 @@ module MultiMapper(
   wire [7:0] map19_prg_dout;
   MapperN106 n106(clk, ce, reset, flags, prg_ain, map19_prg_addr, prg_read, prg_write, prg_din, map19_prg_dout, map19_prg_allow,
                                          chr_ain, map19_chr_addr, map19_chr_allow, map19_vram_a10, map19_vram_ce, map19_irq, map19_audio);
+
+  wire mapfds_prg_allow, mapfds_vram_a10, mapfds_vram_ce, mapfds_chr_allow, mapfds_irq;
+  wire [21:0] mapfds_prg_addr, mapfds_chr_addr;
+  wire [15:0] mapfds_audio;
+  wire [7:0] mapfds_chr_dout, mapfds_prg_dout;
+  MapperFDS mapfds(clk, ce, reset, flags, prg_ain, mapfds_prg_addr, prg_read, prg_write, prg_din, mapfds_prg_dout, mapfds_prg_allow,
+                                          chr_ain, mapfds_chr_addr, mapfds_chr_allow, mapfds_vram_a10, mapfds_vram_ce, mapfds_irq,
+                                                                                                       mapfds_audio, fds_swap);
 
   wire map34_prg_allow, map34_vram_a10, map34_vram_ce, map34_chr_allow;
   wire [21:0] map34_prg_addr, map34_chr_addr;
@@ -1865,6 +1931,7 @@ module MultiMapper(
 
 
     19: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {map19_prg_addr, map19_prg_allow, map19_chr_addr, map19_vram_a10, map19_vram_ce, map19_chr_allow, map19_prg_dout, map19_irq, map19_audio};
+    20: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {mapfds_prg_addr, mapfds_prg_allow, mapfds_chr_addr, mapfds_vram_a10, mapfds_vram_ce, mapfds_chr_allow, mapfds_prg_dout, mapfds_irq, mapfds_audio};
     24, 26: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow, prg_dout, irq, audio} = {vrc6_prg_addr, vrc6_prg_allow, vrc6_chr_addr, vrc6_vram_a10, vrc6_vram_ce, vrc6_chr_allow, vrc6_prg_dout, vrc6_irq, vrc6_audio}; 
 
     34: {prg_aout, prg_allow, chr_aout, vram_a10, vram_ce, chr_allow}      = {map34_prg_addr, map34_prg_allow, map34_chr_addr, map34_vram_a10, map34_vram_ce, map34_chr_allow};

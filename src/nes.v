@@ -128,6 +128,7 @@ module NES(input clk, input reset, input ce,
            output [1:0] joypad_clock, // Set to 1 for each joypad to clock it.
            input [1:0] joypad_data, // Data for each joypad.
            input [4:0] audio_channels, // Enabled audio channels
+           input fds_swap,
 
            
            // Access signals for the SRAM.
@@ -272,7 +273,7 @@ module NES(input clk, input reset, input ce,
   assign sample = sample_sum[16:1]; //loss of 1 bit of resolution.  Add control for when no external audio to boost back up?
   MultiMapper multi_mapper(clk, cart_ce, ce, reset, mapper_ppu_flags, mapper_flags, 
                            prg_addr, prg_linaddr, prg_read, prg_write, prg_din, prg_dout_mapper, from_data_bus, prg_allow,
-                           chr_read, chr_addr, chr_linaddr, chr_from_ppu_mapper, has_chr_from_ppu_mapper, chr_allow, vram_a10, vram_ce, mapper_irq, sample_ext);
+                           chr_read, chr_addr, chr_linaddr, chr_from_ppu_mapper, has_chr_from_ppu_mapper, chr_allow, vram_a10, vram_ce, mapper_irq, sample_ext, fds_swap);
   assign chr_to_ppu = has_chr_from_ppu_mapper ? chr_from_ppu_mapper : memory_din_ppu;
                              
   // Mapper IRQ seems to be delayed by one PPU clock.   

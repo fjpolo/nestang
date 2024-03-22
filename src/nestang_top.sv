@@ -217,6 +217,8 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire NES_gamepad_data_available;
   wire [7:0]NES_gamepad_button_state2;
   wire NES_gamepad_data_available2;
+  // FDS Disk Swap -> Select
+  wire fds_swap = nes_btn[2];
 
 `ifdef N20K
   NESGamepad nes_gamepad(
@@ -327,7 +329,7 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire NES_int_audio;
   wire NES_ext_audio;
   assign NES_int_audio = 1;
-  assign NES_ext_audio = (mapper_flags[7:0] == 19) | (mapper_flags[7:0] == 24) | (mapper_flags[7:0] == 26);
+  assign NES_ext_audio = (mapper_flags[7:0] == 19) | (mapper_flags[7:0] == 20) | (mapper_flags[7:0] == 24) | (mapper_flags[7:0] == 26) | (mapper_flags[7:0] == 69);
 
   // Main NES machine
   NES nes(
