@@ -219,6 +219,9 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire NES_gamepad_data_available2;
   // FDS Disk Swap -> Select
   wire fds_swap = nes_btn[2];
+  reg [7:0]  filetype;
+  reg FDS_downloading;
+  initial FDS_downloading = 0;
 
 `ifdef N20K
   NESGamepad nes_gamepad(
@@ -263,7 +266,7 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
   // Parses ROM data and store them for MemoryController to access
   GameLoader loader(
-        .clk(clk), .reset(loader_reset), .indata(loader_input), .indata_clk(loader_clk),
+        .clk(clk), .reset(loader_reset), .downloading(FDS_downloading), .filetype(filetype), .indata(loader_input), .indata_clk(loader_clk),
         .mem_addr(loader_addr), .mem_data(loader_write_data), .mem_write(loader_write),
         .mem_refresh(loader_refresh), .mapper_flags(mapper_flags), 
         .done(loader_done), .error(loader_fail), .loader_state(), .loader_bytes_left());

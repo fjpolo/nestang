@@ -3,6 +3,8 @@
 // This parses iNES headers too.
 
 module GameLoader(input clk, input reset,
+                  input downloading,
+                  input   [7:0] filetype,
                   input [7:0] indata, input indata_clk,
                   output reg [21:0] mem_addr, output [7:0] mem_data, output mem_write, output reg mem_refresh,
                   output [31:0] mapper_flags,
@@ -22,7 +24,7 @@ module GameLoader(input clk, input reset,
   wire [7:0] prgrom = ines[4];
   wire [7:0] chrrom = ines[5];
   assign mem_data = indata;
-  assign mem_write = !done && (bytes_left != 0) && indata_clk;
+  assign mem_write = (bytes_left != 0) && (state == 1 || state == 2) || (downloading && (state == 0 || state == 4)) && indata_clk;
 
   wire [2:0] prg_size = prgrom <= 1  ? 0 :
                         prgrom <= 2  ? 1 : 
@@ -48,16 +50,37 @@ module GameLoader(input clk, input reset,
       state <= 0;
       done <= 0;
       ctr <= 0;
-      mem_addr <= 0;  // Address for PRG
+      mem_addr <= filetype == 8'h0B ? 22'b00_0100_0000_0000_0001_0000 : 22'b00_0000_0000_0000_0000_0000;  // Address for FDS : BIOS/PRG
     end else begin
       case(state)
       // Read 16 bytes of ines header
       0: if (indata_clk) begin
            ctr <= ctr + 1;
+           mem_addr <= mem_addr + 1'd1;
            ines[ctr] <= indata;
            bytes_left <= {prgrom, 14'b0};           // Each prgrom is 16KB
-           if (ctr == 4'b1111)
-             state <= (ines[0] == 8'h4E) && (ines[1] == 8'h45) && (ines[2] == 8'h53) && (ines[3] == 8'h1A) && !ines[6][2] && !ines[6][3] ? 1 : 5;
+           if (ctr == 4'b1111) begin
+              // Check the 'NES' header. Also, we don't support trainers.
+              if ((ines[0] == 8'h4E) && (ines[1] == 8'h45) && (ines[2] == 8'h53) && (ines[3] == 8'h1A) && !ines[6][2]) begin
+                mem_addr <= 0;  // Address for PRG
+                state <= 1;
+              //FDS
+              end else if ((ines[0] == 8'h46) && (ines[1] == 8'h44) && (ines[2] == 8'h53) && (ines[3] == 8'h1A)) begin
+                mem_addr <= 22'b00_0100_0000_0000_0001_0000;  // Address for FDS skip Header
+                state <= 4;
+                bytes_left <= 21'b1;
+              end else if (filetype[7:0]==8'h0A) begin // Bios
+                state <= 4;
+                mem_addr <= 22'b00_0000_0000_0000_0001_0000;  // Address for BIOS skip Header
+                bytes_left <= 21'b1;
+              end else if (filetype[7:0]==8'h0B) begin // FDS
+                state <= 4;
+                mem_addr <= 22'b00_0100_0000_0000_0010_0000;  // Address for FDS no Header
+                bytes_left <= 21'b1;
+              end else begin
+                state <= 3;
+              end
+            end
          end
       1, 2: begin // Read the next |bytes_left| bytes into |mem_addr|
           if (bytes_left != 0) begin
@@ -71,6 +94,26 @@ module GameLoader(input clk, input reset,
             bytes_left <= {1'b0, chrrom, 13'b0};      // Each chrrom is 8KB
           end else if (state == 2) begin
             done <= 1;
+          end
+        end
+        4: begin // Read the next |bytes_left| bytes into |mem_addr|
+          if (downloading) begin
+            if (indata_clk) begin
+              mem_addr <= mem_addr + 1'd1;
+            end
+          end else begin
+            done <= 1;
+            bytes_left <= 21'b0;
+            ines[6] <= 8'h40;
+            ines[7] <= 8'h10;
+            ines[8] <= 8'h00;
+            ines[9] <= 8'h00;
+            ines[10] <= 8'h00;
+            ines[11] <= 8'h00;
+            ines[12] <= 8'h00;
+            ines[13] <= 8'h00;
+            ines[14] <= 8'h00;
+            ines[15] <= 8'h00;
           end
         end
       endcase

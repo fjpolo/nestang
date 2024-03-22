@@ -591,25 +591,41 @@ module namco106_sound(
         endcase
     end
 
-  reg [7:0] expansion_ram[0:1023]; // Block RAM, otherwise we need to time multiplex..
+  reg [7:0] modtable[0:1023]; // Block RAM for modtable
 
-//    RAMB4_S8_S8 n106_ram(
-//        .WEA(wr & ain[15:11]==5'b01001),   //cpu write 4800-4FFF
-//        .ENA(1'b1),
-//        .RSTA(1'b0),
-//        .CLKA(m2),
-//        .ADDRA({2'd0,ram_ain}),
-//        .DIA(din),
-//        .DOA(),
-//
-//        .WEB(1'b0),
-//        .ENB(1'b1),
-//        .RSTB(1'b0),
-//        .CLKB(clk20),
-//        .ADDRB({2'd0,ram_aout}),
-//        .DIB(),
-//        .DOB(ram_dout)
-//    );
+//   dpram #(.widthad_a(7)) modtable
+//     (
+//       .clock_a   (clk20),
+//       .address_a (ram_ain),
+//       .wren_a    (wr & ain[15:11]==5'b01001),
+// 		.byteena_a (1),
+//       .data_a    (din),
+//       //.q_a     (),
+
+//       .clock_b   (clk20),
+//       .address_b (ram_aout),
+//       .wren_b    (0),
+// 		.byteena_b (1),
+//       .data_b    (0),
+//       .q_b       (ram_dout)
+//     );
+// //    RAMB4_S8_S8 n106_ram(
+// //        .WEA(wr & ain[15:11]==5'b01001),   //cpu write 4800-4FFF
+// //        .ENA(1'b1),
+// //        .RSTA(1'b0),
+// //        .CLKA(m2),
+// //        .ADDRA({2'd0,ram_ain}),
+// //        .DIA(din),
+// //        .DOA(),
+// //
+// //        .WEB(1'b0),
+// //        .ENB(1'b1),
+// //        .RSTB(1'b0),
+// //        .CLKB(clk20),
+// //        .ADDRB({2'd0,ram_aout}),
+// //        .DIB(),
+// //        .DOB(ram_dout)
+// //    );
 
 endmodule
 
@@ -933,22 +949,25 @@ module fds_sound(
 //        .WEB(1'b0), .ENB(1'b1 /*~mod_we & ~mod_en*/), .RSTB(1'b0), .CLKB(m2), .ADDRB({5'd0,mod_ptr_out[5:1]}), .DIB(4'd0), .DOB(mod_table_out));        //read port
     wire [7:0] modtable_outb;
 	 assign mod_table_out = modtable_outb[2:0];
-  dpram #(.widthad_a(5)) modtable
-    (
-      .clock_a   (clk),
-      .address_a (mod_ptr_in),
-      .wren_a    (wr & ain==16'h4088 & mod_en),
-		.byteena_a (1),
-      .data_a    ({5'b0,din[2:0]}),
-      //.q_a     (),
+    
+reg [7:0] modtable[0:1023]; // Block RAM for modtable
+//   dpram #(.widthad_a(5)) modtable
+//     (
+//       .clock_a   (clk),
+//       .address_a (mod_ptr_in),
+//       .wren_a    (wr & ain==16'h4088 & mod_en),
+// 		.byteena_a (1),
+//       .data_a    ({5'b0,din[2:0]}),
+//       //.q_a     (),
 
-      .clock_b   (clk),
-      .address_b (mod_ptr_out[5:1]),
-      .wren_b    (0),
-		.byteena_b (1),
-      .data_b    (0),
-      .q_b       (modtable_outb)
-    );
+//       .clock_b   (clk),
+//       .address_b (mod_ptr_out[5:1]),
+//       .wren_b    (0),
+// 		.byteena_b (1),
+//       .data_b    (0),
+//       .q_b       (modtable_outb)
+//     );
+
     always@(posedge clk) begin
 		if (m2) begin
         if(wr) begin
@@ -1005,40 +1024,42 @@ module fds_sound(
 
     //6x64 wavetable ram
     wire [7:0] outA, outB;
-    wire waveaddr=ain[15:6]==10'b0100_0000_01;  //4040..407F
-//    RAMB4_S8_S8 waveform(
-//        .WEA(wr & wave_we & waveaddr),  //cpu write / wave read
-//        .ENA(1'b1),
-//        .RSTA(1'b0),
-//        .CLKA(m2),      //write on posedge M2
-//        .ADDRA({3'd0,wave_we?ain[5:0]:wave_ptr[5:0]}),
-//        .DIA(din),
-//        .DOA(outA),
-//
-//        .WEB(1'b0),     //cpu read
-//        .ENB(waveaddr),
-//        .RSTB(1'b0),
-//        .CLKB(~m2),     //read on negedge M2
-//        .ADDRB({3'd0,ain[5:0]}),
-//        .DIB(8'd0),
-//        .DOB(outB)
-//    );
-  dpram #(.widthad_a(6)) waveform
-    (
-      .clock_a   (clk),
-      .address_a (wave_we?ain[5:0]:wave_ptr[5:0]),
-      .wren_a    (wr & wave_we & waveaddr),
-		.byteena_a (1),
-      .data_a    (din),
-      .q_a       (outA),
+    wire waveaddr = ain[15:6]==10'b0100_0000_01;  //4040..407F
 
-      .clock_b   (clk), //~m2
-		.byteena_b (waveaddr),
-      .address_b (ain[5:0]),
-      .wren_b    (0),
-      .data_b    (0),
-      .q_b       (outB)
-    );
+    reg [7:0] waveform[0:1023]; // Block RAM for WAVform
+//   dpram #(.widthad_a(6)) waveform
+//     (
+//       .clock_a   (clk),
+//       .address_a (wave_we?ain[5:0]:wave_ptr[5:0]),
+//       .wren_a    (wr & wave_we & waveaddr),
+// 		.byteena_a (1),
+//       .data_a    (din),
+//       .q_a       (outA),
+
+//       .clock_b   (clk), //~m2
+// 		.byteena_b (waveaddr),
+//       .address_b (ain[5:0]),
+//       .wren_b    (0),
+//       .data_b    (0),
+//       .q_b       (outB)
+//     );
+// //    RAMB4_S8_S8 waveform(
+// //        .WEA(wr & wave_we & waveaddr),  //cpu write / wave read
+// //        .ENA(1'b1),
+// //        .RSTA(1'b0),
+// //        .CLKA(m2),      //write on posedge M2
+// //        .ADDRA({3'd0,wave_we?ain[5:0]:wave_ptr[5:0]}),
+// //        .DIA(din),
+// //        .DOA(outA),
+// //
+// //        .WEB(1'b0),     //cpu read
+// //        .ENB(waveaddr),
+// //        .RSTB(1'b0),
+// //        .CLKB(~m2),     //read on negedge M2
+// //        .ADDRB({3'd0,ain[5:0]}),
+// //        .DIB(8'd0),
+// //        .DOB(outB)
+// //    );
 
     reg [5:0] outA_buf;
     always@(posedge m2) if(~wave_we & ~wave_en) outA_buf<=outA;
