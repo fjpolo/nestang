@@ -99,6 +99,7 @@ always@(posedge print_clk)begin
     endcase
 end
 
+`ifndef P9K
 reg uart_en;
 wire uart_bz;
 wire uart_txp;
@@ -112,6 +113,7 @@ always@(posedge print_clk)begin
     if(seq_head!=seq_tail && !uart_bz)
         uart_en<=1'b1;
 end
+`endif
 
 task int_print(
     input[1023:0] strin,//max 128 characters

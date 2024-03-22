@@ -22,8 +22,9 @@ module nestang_top (
     output [1:0] led,
 
     // SDRAM
-    // For Primer 25K: https://github.com/MiSTer-devel/Hardware_MiSTer/blob/master/releases/sdram_xsds_3.0.pdf
+    // For Nano 9K: 8MB 32-bit SDRAM
     // For Nano 20K: 8MB 32-bit SDRAM
+    // For Primer 25K: https://github.com/MiSTer-devel/Hardware_MiSTer/blob/master/releases/sdram_xsds_3.0.pdf
     output O_sdram_clk,
     output O_sdram_cke,
     output O_sdram_cs_n,            // chip select
@@ -37,12 +38,13 @@ module nestang_top (
 
     // MicroSD
     output sd_clk,
-    inout sd_cmd,      // MOSI
+    inout sd_cmd,       // MOSI
     input  sd_dat0,     // MISO
     output sd_dat1,     // 1
     output sd_dat2,     // 1
     output sd_dat3,     // 1
 
+`ifndef N9K
     // Dualshock game controller
     output joystick_clk,
     output joystick_mosi,
@@ -61,10 +63,10 @@ module nestang_top (
     inout usbdp2,
 `endif
 //    output clk_usb,
-
+`endif
 
     // NES gamepad
-`ifdef N20K
+`ifndef P25K
     output NES_gamepad_data_clock,
     output NES_gampepad_data_latch,
     input NES_gampead_serial_data,
@@ -101,11 +103,13 @@ end
 `endif
   wire clk_usb;
 
+`ifndef N9K
   // USB clock 12Mhz
   gowin_pll_usb pll_usb(
       .clkin(clk),
       .clkout(clk_usb)       // 12Mhz usb clock
   );
+`endif
 
   // HDMI domain clocks
   wire clk_p;     // 720p pixel clock: 74.25 Mhz
@@ -218,7 +222,7 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire [7:0]NES_gamepad_button_state2;
   wire NES_gamepad_data_available2;
 
-`ifdef N20K
+`ifndef P25K
   NESGamepad nes_gamepad(
 		.i_clk(clk),
         .i_rst(sys_resetn),
@@ -397,6 +401,7 @@ SDLoader #(.FREQ(FREQ)) sd_loader (
     .debug_reg(sd_debug_reg), .debug_out(sd_debug_out)
 );
 
+`ifndef N9K
 // Dualshock controller
 dualshock_controller controller (
     .clk(clk), .I_RSTn(1'b1),
@@ -451,7 +456,8 @@ usb_hid_host usb_controller2 (
     .mouse_btn(), .mouse_dx(), .mouse_dy(),
     .dbg_hid_report()
 );
-`endif
+`endif //P25K
+`endif // !N9K
 
 //
 // Print control
