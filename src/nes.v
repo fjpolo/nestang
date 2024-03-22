@@ -128,7 +128,6 @@ module NES(input clk, input reset, input ce,
            output [1:0] joypad_clock, // Set to 1 for each joypad to clock it.
            input [1:0] joypad_data, // Data for each joypad.
            input [4:0] audio_channels, // Enabled audio channels
-           input fds_swap,
 
            
            // Access signals for the SRAM.
@@ -145,7 +144,10 @@ module NES(input clk, input reset, input ce,
 
            // VRC6
            input int_audio,
-           input ext_audio
+           input ext_audio,
+
+           // FDS
+           input fds_swap
            
 //           output reg [31:0] dbgadr,
 //           output [1:0] dbgctr

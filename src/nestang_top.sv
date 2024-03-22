@@ -218,7 +218,7 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire [7:0]NES_gamepad_button_state2;
   wire NES_gamepad_data_available2;
   // FDS Disk Swap -> Select
-  wire fds_swap = nes_btn[2];
+  wire FDS_swap = nes_btn[2];
   reg [7:0]  filetype;
   reg FDS_downloading;
   initial FDS_downloading = 0;
@@ -336,19 +336,28 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
   // Main NES machine
   NES nes(
-          clk, reset_nes, run_nes,
-          mapper_flags,
-          sample, color,
-          joypad_strobe, joypad_clock, {joypad_bits2[0], joypad_bits[0]},
-          SW[4:0],
-          memory_addr,
-          memory_read_cpu, memory_din_cpu,
-          memory_read_ppu, memory_din_ppu,
-          memory_write, memory_dout,
-          cycle, scanline,
-          // VRC6
-          NES_int_audio,
-          NES_ext_audio
+            .clk(clk),
+            .reset(reset_nes),
+            .ce(run_nes),
+            .mapper_flags(mapper_flags),
+            .sample(sample),
+            .color(color),
+            .joypad_strobe(joypad_strobe),
+            .joypad_clock(joypad_clock),
+            .joypad_data({joypad_bits2[0], joypad_bits[0]}),
+            .audio_channels(SW[4:0]),
+            .memory_addr(memory_addr),
+            .memory_read_cpu(memory_read_cpu),
+            .memory_din_cpu(memory_din_cpu),
+            .memory_read_ppu(memory_read_ppu),
+            .memory_din_ppu(memory_din_ppu),
+            .memory_write(memory_write),
+            .memory_dout(memory_dout),
+            .cycle(cycle),
+            .scanline(scanline),
+            .int_audio(NES_int_audio),
+            .ext_audio(NES_ext_audio),
+            .fds_swap(FDS_swap)
         );
 
 /*verilator tracing_off*/
