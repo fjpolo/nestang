@@ -527,16 +527,15 @@ module MMC5(input clk, input ce, input reset,
   end
   
   // Determine IRQ handling
-  reg last_scanline, irq_trig;
+  reg last_scanline;
+  wire irq_trig = (irq_scanline != 0 && irq_scanline < 240 && ppu_scanline == {1'b0, irq_scanline});
   always @(posedge clk) if (ce) begin
-
     irq_trig <= (irq_scanline != 0 && irq_scanline < 240 && ppu_scanline == {1'b0, irq_scanline});
-	  last_scanline <= ppu_scanline[0];
+    last_scanline <= ppu_scanline[0];
 
     if (prg_read && prg_ain == 16'h5204)
       irq_pending <= 0;
-    irq_trig <= (irq_scanline != 0 && irq_scanline < 240 && ppu_scanline == {1'b0, irq_scanline});
-    last_scanline <= ppu_scanline[0];
+
     if (ppu_scanline[0] != last_scanline && irq_trig)
       irq_pending <= 1;
   end
