@@ -439,6 +439,7 @@ module MMC5(input clk, input ce, input reset,
   
   // unpack ppu flags
   wire ppu_in_frame = ppuflags[0];
+  reg old_ppu_sprite16;
   wire ppu_sprite16 = ppuflags[1];
   wire [8:0] ppu_cycle = ppuflags[10:2]; 
   wire [8:0] ppu_scanline = ppuflags[19:11];
@@ -487,9 +488,15 @@ module MMC5(input clk, input ce, input reset,
         endcase
         
         // Remember which set of CHR was written to last.
+        // chr_last is set to 0 when changing bank with sprites set to 8x8
         if (prg_ain[9:0] >= 10'h120 && prg_ain[9:0] < 10'h130)
-          chr_last <= prg_ain[3];
+          chr_last <= prg_ain[3] & ppu_sprite16;
       end
+
+      // chr_last is set to 0 when changing sprite size to 8x8
+      old_ppu_sprite16 <= ppu_sprite16;
+      if (old_ppu_sprite16 != ppu_sprite16 && ~ppu_sprite16)
+        chr_last <= 0;
       
       // Mode 0/1 - Not readable (returns open bus), can only be written while the PPU is rendering (otherwise, 0 is written)
       // Mode 2 - Readable and writable
@@ -522,6 +529,10 @@ module MMC5(input clk, input ce, input reset,
   // Determine IRQ handling
   reg last_scanline, irq_trig;
   always @(posedge clk) if (ce) begin
+
+    irq_trig <= (irq_scanline != 0 && irq_scanline < 240 && ppu_scanline == {1'b0, irq_scanline});
+	  last_scanline <= ppu_scanline[0];
+
     if (prg_read && prg_ain == 16'h5204)
       irq_pending <= 0;
     irq_trig <= (irq_scanline != 0 && irq_scanline < 240 && ppu_scanline == {1'b0, irq_scanline});
