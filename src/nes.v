@@ -144,7 +144,10 @@ module NES(input clk, input reset, input ce,
 
            // VRC6
            input int_audio,
-           input ext_audio
+           input ext_audio,
+
+            // Rewind
+            input i_rewind_ce
            
 //           output reg [31:0] dbgadr,
 //           output [1:0] dbgctr
@@ -183,7 +186,18 @@ module NES(input clk, input reset, input ce,
   wire pause_cpu;
   reg apu_irq_delayed;
   reg mapper_irq_delayed;
-  CPU cpu(clk, apu_ce && !pause_cpu, reset, from_data_bus, apu_irq_delayed | mapper_irq_delayed, nmi_active, cpu_dout, cpu_addr, cpu_mr, cpu_mw);
+  CPU cpu(
+            clk,
+            apu_ce && !pause_cpu,
+            reset,
+            from_data_bus,
+            apu_irq_delayed | mapper_irq_delayed,
+            nmi_active,
+            cpu_dout,
+            cpu_addr,
+            cpu_mr,
+            cpu_mw
+         );
 
   // -- DMA
   wire [15:0] dma_aout;
@@ -199,7 +213,10 @@ module NES(input clk, input reset, input ce,
   wire mr_int      = dma_aout_enable ? dma_read : cpu_mr;
   wire mw_int      = dma_aout_enable ? !dma_read : cpu_mw;
 
-  DmaController dma(clk, apu_ce, reset, 
+  DmaController dma(
+                    clk,
+                    apu_ce,
+                    reset, 
                     odd_or_even,                    // Even or odd cycle
                     (addr == 'h4014 && mw_int),     // Sprite trigger
                     apu_dma_request,                // DMC Trigger
@@ -212,14 +229,18 @@ module NES(input clk, input reset, input ce,
                     dma_read,
                     dma_data_to_ram,
                     apu_dma_ack,
-                    pause_cpu);
+                    pause_cpu
+                   );
 
   // -- Audio Processing Unit  
   wire apu_cs = addr >= 'h4000 && addr < 'h4018;
   wire [7:0] apu_dout;
   wire apu_irq;
   wire [15:0] sample_apu;
-  APU apu(clk, apu_ce, reset,
+  APU apu(
+          clk,
+          apu_ce,
+          reset,
           addr[4:0], dbus, apu_dout, 
           mw_int && apu_cs, mr_int && apu_cs,
           audio_channels,
@@ -229,7 +250,8 @@ module NES(input clk, input reset, input ce,
           apu_dma_addr,
           from_data_bus,
           odd_or_even,
-          apu_irq);
+          apu_irq
+         );
 
   // Joypads are mapped into the APU's range.
   wire joypad1_cs = (addr == 'h4016);
@@ -250,11 +272,26 @@ module NES(input clk, input reset, input ce,
   wire [7:0] chr_from_ppu;       // Data from PPU to VRAM
   wire [7:0] chr_to_ppu;
   wire [19:0] mapper_ppu_flags;  // PPU flags for mapper cheating
-  PPU ppu(clk, ce, reset, color, dbus, ppu_dout, addr[2:0],
-          ppu_cs && mr_ppu, ppu_cs && mw_ppu,
-          nmi,
-          chr_read, chr_write, chr_addr, chr_to_ppu, chr_from_ppu,
-          scanline, cycle, mapper_ppu_flags);
+  PPU ppu(
+            clk,
+            ce,
+            reset,
+            color,
+            dbus,
+            ppu_dout,
+            addr[2:0],
+            ppu_cs && mr_ppu,
+            ppu_cs && mw_ppu,
+            nmi,
+            chr_read,
+            chr_write,
+            chr_addr,
+            chr_to_ppu,
+            chr_from_ppu,
+            scanline,
+            cycle,
+            mapper_ppu_flags
+        );
 
   // -- Memory mapping logic
   wire [15:0] prg_addr = addr;
@@ -270,9 +307,32 @@ module NES(input clk, input reset, input ce,
   wire [15:0] sample_ext;
   reg [16:0] sample_sum;
   assign sample = sample_sum[16:1]; //loss of 1 bit of resolution.  Add control for when no external audio to boost back up?
-  MultiMapper multi_mapper(clk, cart_ce, ce, reset, mapper_ppu_flags, mapper_flags, 
-                           prg_addr, prg_linaddr, prg_read, prg_write, prg_din, prg_dout_mapper, from_data_bus, prg_allow,
-                           chr_read, chr_addr, chr_linaddr, chr_from_ppu_mapper, has_chr_from_ppu_mapper, chr_allow, vram_a10, vram_ce, mapper_irq, sample_ext);
+  MultiMapper multi_mapper(
+                            clk,
+                            cart_ce,
+                            ce,
+                            reset,
+                            mapper_ppu_flags,
+                            mapper_flags, 
+                            prg_addr,
+                            prg_linaddr,
+                            prg_read,
+                            prg_write,
+                            prg_din,
+                            prg_dout_mapper,
+                            from_data_bus,
+                            prg_allow,
+                            chr_read,
+                            chr_addr,
+                            chr_linaddr,
+                            chr_from_ppu_mapper,
+                            has_chr_from_ppu_mapper,
+                            chr_allow,
+                            vram_a10,
+                            vram_ce,
+                            mapper_irq,
+                            sample_ext
+                         );
   assign chr_to_ppu = has_chr_from_ppu_mapper ? chr_from_ppu_mapper : memory_din_ppu;
                              
   // Mapper IRQ seems to be delayed by one PPU clock.   
@@ -296,9 +356,23 @@ module NES(input clk, input reset, input ce,
   end
    
   // -- Multiplexes CPU and PPU accesses into one single RAM
-  MemoryMultiplex mem(clk, ce, prg_linaddr, prg_read && prg_allow, prg_write && prg_allow, prg_din, 
-                               chr_linaddr, chr_read,              chr_write && (chr_allow || vram_ce), chr_from_ppu,
-                               memory_addr, memory_read_cpu, memory_read_ppu, memory_write, memory_dout);
+  MemoryMultiplex mem(
+                        clk,
+                        ce,
+                        prg_linaddr,
+                        prg_read && prg_allow,
+                        prg_write && prg_allow,
+                        prg_din, 
+                        chr_linaddr,
+                        chr_read,
+                        chr_write && (chr_allow || vram_ce),
+                        chr_from_ppu,
+                        memory_addr,
+                        memory_read_cpu,
+                        memory_read_ppu,
+                        memory_write,
+                        memory_dout
+                     );
 
   always @* begin
     if (apu_cs) begin
