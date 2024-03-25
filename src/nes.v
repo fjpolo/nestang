@@ -323,7 +323,10 @@ module NES(
                     dma_read,
                     dma_data_to_ram,
                     apu_dma_ack,
-                    pause_cpu
+                    pause_cpu,
+                    // Rewind
+                    rewind_time_to_save,
+                    i_rewind_enable
                    );
 
   // -- Audio Processing Unit  
@@ -345,7 +348,10 @@ module NES(
           apu_dma_addr,
           from_data_bus,
           odd_or_even,
-          apu_irq
+          apu_irq,
+          // Rewind
+          rewind_time_to_save,
+          i_rewind_enable
          );
 
   // Joypads are mapped into the APU's range.
@@ -477,7 +483,10 @@ module NES(
                         memory_read_cpu,
                         memory_read_ppu,
                         memory_write,
-                        memory_dout
+                        memory_dout,
+                        // Rewind
+                        rewind_time_to_save,
+                        i_rewind_enable
                      );
 
   always @* begin
