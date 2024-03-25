@@ -591,41 +591,163 @@ module namco106_sound(
         endcase
     end
 
-  reg [7:0] modtable[0:1023]; // Block RAM for modtable
+    /*
+    
+     Each BSRAM can be configured as 16 Kbits or18 Kbits. Data width
+    and address depth configuration is as shown in Table 2-1.
 
-//   dpram #(.widthad_a(7)) modtable
-//     (
-//       .clock_a   (clk20),
-//       .address_a (ram_ain),
-//       .wren_a    (wr & ain[15:11]==5'b01001),
-// 		.byteena_a (1),
-//       .data_a    (din),
-//       //.q_a     (),
+        |   Size  | Single Port Mode | Dual Port Mode | Semi-dual Port Mode | Read Only Mode |
+        |---------|------------------|----------------|---------------------|----------------|
+        |         | 16K x 1          | 16K x 1        | 16K x 1             | 16K x 1        |
+        |         | 8K x 2           | 8K x 2         | 8K x 2              | 8K x 2         |
+        | 16Kbits | 4K x 4           | 4K x 4         | 4K x 4              | 4K x 4         |
+        |         | 2K x 8           | 2K x 8         | 2K x 8              | 2K x 8         |
+        |         | 1K x 16          | 1K x 16        | 1K x 16             | 1K x 16        |
+        |         | 512 x 32         | –              | 512 x 32            | 512 x 32       |
+        |---------|------------------|----------------|---------------------|----------------|
+        |         | 2K x 9           | 2K x 9         | 2K x 9              | 2K x 9         |
+        | 18Kbits | 1K x 18          | 1K x 18        | 1K x 18             | 1K x 18        |
+        |         | 512 x 36         | –              | 512 x 36            | 512 x 36       |
 
-//       .clock_b   (clk20),
-//       .address_b (ram_aout),
-//       .wren_b    (0),
-// 		.byteena_b (1),
-//       .data_b    (0),
-//       .q_b       (ram_dout)
-//     );
-// //    RAMB4_S8_S8 n106_ram(
-// //        .WEA(wr & ain[15:11]==5'b01001),   //cpu write 4800-4FFF
-// //        .ENA(1'b1),
-// //        .RSTA(1'b0),
-// //        .CLKA(m2),
-// //        .ADDRA({2'd0,ram_ain}),
-// //        .DIA(din),
-// //        .DOA(),
-// //
-// //        .WEB(1'b0),
-// //        .ENB(1'b1),
-// //        .RSTB(1'b0),
-// //        .CLKB(clk20),
-// //        .ADDRB({2'd0,ram_aout}),
-// //        .DIB(),
-// //        .DOB(ram_dout)
-// //    );
+     Each BSRAM has 14-bit address line, that is AD[13:0], and the
+    maximum address depth is 16,384. Different data widths use different
+    address lines, as shown in Table 2-2.
+
+     Dual Port and Semi-dual Port support independent read/write clocks
+    and independent read/write data width. In Dual Port mode, the data widths
+    supported by Port A and Port B are as shown in Table 2-3. In Semi-dual
+    Port mode, the data widths supported by Port A and Port B are as shown in
+    Table 2-4.
+
+
+    Port Description:
+
+    | Name                          | I/O           | Description   |
+    |-------------------------------|---------------|---------------|
+    | DOA[15:0]/DOA[17:0]           | Output        | A data output |
+    | DOB[15:0]/DOB[17:0]           | Output        | B data output
+    | DIA[15:0]/DIA[17:0]           | Input         | A data input
+    | DIB[15:0]/DIB[17:0]           | Input         | B data input
+    | ADA[13:0]                     | Input         | A address input
+    | ADB[13:0]                     | Input         | B address input
+    |                               |               | A write enable input
+    | WREA                          | Input         |   1: write
+    |                               |               |   0: read
+    |                               |               | B write enable input
+    | WREB                          | Input         |   1: write
+    |                               |               |   0: read
+    | CEA                           | Input         | A clock enable signal, active-high
+    | CEB                           | Input         | B clock enable signal, active-high
+    | CLKA                          | Input         | A clock input
+    | CLKB                          | Input         | B clock input
+    | RESETA                        | Input         | A reset input, synchronous reset and asynchronous reset supported, active-high. It is the RESETA reset register, rather than the value of reset register.
+    | RESETB                        | Input         | B reset input, synchronous reset and asynchronous reset supported, active-high. It is the RESETB reset register, rather than the value of reset register.
+    | OCEA                          | Input         | A output clock enable signal used in Pipeline, invalid in Bypass
+    | OCEB                          | Input         | B output clock enable signal used in Pipeline, invalid in Bypass
+    | BLKSELA[2:0]                  | Input         | BSRAM A block selection signal for multiple BSRAM memory units cascading to realize capacity expansion
+    | BLKSELB[2:0]                  | Input         | BSRAM B block selection signal for multiple BSRAM memory units cascading to realize capacity expansion
+
+
+
+
+    Parameter Description:
+
+    | Name                          | Type          | Range             | Default           | Description               |
+    |-------------------------------|---------------|-------------------|-------------------|---------------------------|
+    |                               |               |                   |                   | A read mode configuration
+    | READ_MODE0                    | Integer       | 1'b0,1'b1         | 1'b0              |   1'b0:bypass
+    |                               |               |                   |                   |   1'b1:pipeline
+    |                               |               |                   |                   | B read mode configuration
+    | READ_MODE1                    | Integer       | 1'b0,1'b1         | 1'b0              |   1'b0:bypass
+    |                               |               |                   |                   |   1'b1:pipeline
+    |                               |               |                   |                   | A write mode configuration
+    | WRITE_MODE0                   | Integer       | 2'b00,2'b01       | 1'b0              |   2'b00: normal
+    |                               |               |                   |                   |   2'b01: write-through
+    |                               |               |                   |                   | B write mode configuration
+    | WRITE_MODE1                   | Integer       | 2'b00,2'b01       | 1'b0              |   2'b00: normal
+    |                               |               |                   |                   |   2'b01: write-through
+    |                               |               |                   |                   |
+    | BIT_WIDTH_0                   | Integer       | DPB:1,2,4,8,16    | DPB:16            | A data width configuration
+    |                               |               | DPX9B:9,18        | DPX9B:18          | 
+    |                               |               |                   |                   |
+    | BIT_WIDTH_1                   | Integer       | DPB:1,2,4,8,16    | DPB:16            | B data width configuration
+    |                               |               | DPX9B:9,18        | DPX9B:18          | 
+    | BLK_SEL_0                     | Integer       | 3'b000~3'b111     | 3'b000 When       | BSRAM A     block selection parameter is     equal to BLKSELA, the     BSRAM is selected. The software will handle expansion automatically when IP Core Generator is used to expand storage capacity.
+    | BLK_SEL_1                     | Integer       | 3'b000~3'b111     | 3'b000 When       | BSRAM B block selection parameter is equal to BLKSELB, the BSRAM is selected. The software will handle expansion automatically when IP Core Generator is used to expand storage capacity.
+    | RESET_MODE                    | String        | SYNC,ASYNC        | SYNC              | Reset mode configuration SYNC: synchronous reset ASYNC: asynchronous reset
+    |                               |               | DPB:256'h0…0~2    | DPB:256'h         |
+    | INIT_RAM_00~                  | Integer       | 56'h1…1           | 0…0               | Used to set BSRAM initialization data
+    | INIT_RAM_3F                   |               | DPX9B:288'h0…0    | DPX9B:28          |
+    |                               |               | ~288'h1…1         | 8'h0…0            |
+
+    */
+    DPB modtable(
+                    .DOA(),
+                    .DOB(ram_dout),
+                    .CLKA(m2),
+                    .OCEA(1'b1),
+                    .CEA(1'b1),
+                    .RESETA(1'b0),
+                    .WREA(wr & ain[15:11]==5'b01001),   //cpu write 4800-4FFF
+                    .CLKB(clk20),
+                    .OCEB(1'b1),
+                    .CEB(1'b1),
+                    .RESETB(1'b0),
+                    .WREB(1'b0),
+                    .BLKSELA(),
+                    .BLKSELB(),
+                    .ADA({2'd0,ram_ain}),
+                    .DIA(),                             // Input isn't used
+                    .ADB({2'd0,ram_aout}),
+                    .DIB()                              // Input isn't used
+                  );
+    defparam modtable.READ_MODE0 = 1'b0;
+    defparam modtable.READ_MODE1 = 1'b0;
+    defparam modtable.WRITE_MODE0 = 2'b00;
+    defparam modtable.WRITE_MODE1 = 2'b00;
+    defparam modtable.BIT_WIDTH_0 = 8;
+    defparam modtable.BIT_WIDTH_1 = 8;
+    defparam modtable.BLK_SEL_0 = 3'b000;
+    defparam modtable.BLK_SEL_1 = 3'b000;
+    defparam modtable.RESET_MODE = "ASYNC";
+    // defparam modtable.INIT_RAM_00 = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+    // defparam modtable.INIT_RAM_3E = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+    // defparam modtable.INIT_RAM_3F = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+
+// //   dpram #(.widthad_a(7)) modtable
+// //     (
+// //       .clock_a   (clk20),
+// //       .address_a (ram_ain),
+// //       .wren_a    (wr & ain[15:11]==5'b01001),
+// // 	  .byteena_a (1),
+// //       .data_a    (din),
+// //       //.q_a     (),
+
+// //       .clock_b   (clk20),
+// //       .address_b (ram_aout),
+// //       .wren_b    (0),
+// // 	  .byteena_b (1),
+// //       .data_b    (0),
+// //       .q_b       (ram_dout)
+// //     );
+
+// // //    RAMB4_S8_S8 n106_ram(
+// // //        .WEA(wr & ain[15:11]==5'b01001),   //cpu write 4800-4FFF
+// // //        .ENA(1'b1),
+// // //        .RSTA(1'b0),
+// // //        .CLKA(m2),
+// // //        .ADDRA({2'd0,ram_ain}),
+// // //        .DIA(din),
+// // //        .DOA(),
+// // //
+// // //        .WEB(1'b0),
+// // //        .ENB(1'b1),
+// // //        .RSTB(1'b0),
+// // //        .CLKB(clk20),
+// // //        .ADDRB({2'd0,ram_aout}),
+// // //        .DIB(),
+// // //        .DOB(ram_dout)
+// // //    );
 
 endmodule
 
@@ -950,7 +1072,130 @@ module fds_sound(
     wire [7:0] modtable_outb;
 	 assign mod_table_out = modtable_outb[2:0];
     
-reg [7:0] modtable[0:1023]; // Block RAM for modtable
+
+/*
+    
+     Each BSRAM can be configured as 16 Kbits or18 Kbits. Data width
+    and address depth configuration is as shown in Table 2-1.
+
+        |   Size  | Single Port Mode | Dual Port Mode | Semi-dual Port Mode | Read Only Mode |
+        |---------|------------------|----------------|---------------------|----------------|
+        |         | 16K x 1          | 16K x 1        | 16K x 1             | 16K x 1        |
+        |         | 8K x 2           | 8K x 2         | 8K x 2              | 8K x 2         |
+        | 16Kbits | 4K x 4           | 4K x 4         | 4K x 4              | 4K x 4         |
+        |         | 2K x 8           | 2K x 8         | 2K x 8              | 2K x 8         |
+        |         | 1K x 16          | 1K x 16        | 1K x 16             | 1K x 16        |
+        |         | 512 x 32         | –              | 512 x 32            | 512 x 32       |
+        |---------|------------------|----------------|---------------------|----------------|
+        |         | 2K x 9           | 2K x 9         | 2K x 9              | 2K x 9         |
+        | 18Kbits | 1K x 18          | 1K x 18        | 1K x 18             | 1K x 18        |
+        |         | 512 x 36         | –              | 512 x 36            | 512 x 36       |
+
+     Each BSRAM has 14-bit address line, that is AD[13:0], and the
+    maximum address depth is 16,384. Different data widths use different
+    address lines, as shown in Table 2-2.
+
+     Dual Port and Semi-dual Port support independent read/write clocks
+    and independent read/write data width. In Dual Port mode, the data widths
+    supported by Port A and Port B are as shown in Table 2-3. In Semi-dual
+    Port mode, the data widths supported by Port A and Port B are as shown in
+    Table 2-4.
+
+
+    Port Description:
+
+    | Name                          | I/O           | Description   |
+    |-------------------------------|---------------|---------------|
+    | DOA[15:0]/DOA[17:0]           | Output        | A data output |
+    | DOB[15:0]/DOB[17:0]           | Output        | B data output
+    | DIA[15:0]/DIA[17:0]           | Input         | A data input
+    | DIB[15:0]/DIB[17:0]           | Input         | B data input
+    | ADA[13:0]                     | Input         | A address input
+    | ADB[13:0]                     | Input         | B address input
+    |                               |               | A write enable input
+    | WREA                          | Input         |   1: write
+    |                               |               |   0: read
+    |                               |               | B write enable input
+    | WREB                          | Input         |   1: write
+    |                               |               |   0: read
+    | CEA                           | Input         | A clock enable signal, active-high
+    | CEB                           | Input         | B clock enable signal, active-high
+    | CLKA                          | Input         | A clock input
+    | CLKB                          | Input         | B clock input
+    | RESETA                        | Input         | A reset input, synchronous reset and asynchronous reset supported, active-high. It is the RESETA reset register, rather than the value of reset register.
+    | RESETB                        | Input         | B reset input, synchronous reset and asynchronous reset supported, active-high. It is the RESETB reset register, rather than the value of reset register.
+    | OCEA                          | Input         | A output clock enable signal used in Pipeline, invalid in Bypass
+    | OCEB                          | Input         | B output clock enable signal used in Pipeline, invalid in Bypass
+    | BLKSELA[2:0]                  | Input         | BSRAM A block selection signal for multiple BSRAM memory units cascading to realize capacity expansion
+    | BLKSELB[2:0]                  | Input         | BSRAM B block selection signal for multiple BSRAM memory units cascading to realize capacity expansion
+
+
+
+
+    Parameter Description:
+
+    | Name                          | Type          | Range             | Default           | Description               |
+    |-------------------------------|---------------|-------------------|-------------------|---------------------------|
+    |                               |               |                   |                   | A read mode configuration
+    | READ_MODE0                    | Integer       | 1'b0,1'b1         | 1'b0              |   1'b0:bypass
+    |                               |               |                   |                   |   1'b1:pipeline
+    |                               |               |                   |                   | B read mode configuration
+    | READ_MODE1                    | Integer       | 1'b0,1'b1         | 1'b0              |   1'b0:bypass
+    |                               |               |                   |                   |   1'b1:pipeline
+    |                               |               |                   |                   | A write mode configuration
+    | WRITE_MODE0                   | Integer       | 2'b00,2'b01       | 1'b0              |   2'b00: normal
+    |                               |               |                   |                   |   2'b01: write-through
+    |                               |               |                   |                   | B write mode configuration
+    | WRITE_MODE1                   | Integer       | 2'b00,2'b01       | 1'b0              |   2'b00: normal
+    |                               |               |                   |                   |   2'b01: write-through
+    |                               |               |                   |                   |
+    | BIT_WIDTH_0                   | Integer       | DPB:1,2,4,8,16    | DPB:16            | A data width configuration
+    |                               |               | DPX9B:9,18        | DPX9B:18          | 
+    |                               |               |                   |                   |
+    | BIT_WIDTH_1                   | Integer       | DPB:1,2,4,8,16    | DPB:16            | B data width configuration
+    |                               |               | DPX9B:9,18        | DPX9B:18          | 
+    | BLK_SEL_0                     | Integer       | 3'b000~3'b111     | 3'b000 When       | BSRAM A     block selection parameter is     equal to BLKSELA, the     BSRAM is selected. The software will handle expansion automatically when IP Core Generator is used to expand storage capacity.
+    | BLK_SEL_1                     | Integer       | 3'b000~3'b111     | 3'b000 When       | BSRAM B block selection parameter is equal to BLKSELB, the BSRAM is selected. The software will handle expansion automatically when IP Core Generator is used to expand storage capacity.
+    | RESET_MODE                    | String        | SYNC,ASYNC        | SYNC              | Reset mode configuration SYNC: synchronous reset ASYNC: asynchronous reset
+    |                               |               | DPB:256'h0…0~2    | DPB:256'h         |
+    | INIT_RAM_00~                  | Integer       | 56'h1…1           | 0…0               | Used to set BSRAM initialization data
+    | INIT_RAM_3F                   |               | DPX9B:288'h0…0    | DPX9B:28          |
+    |                               |               | ~288'h1…1         | 8'h0…0            |
+
+    */
+    DPB modtable(
+                    .DOA(),
+                    .DOB(modtable_outb),
+                    .CLKA(clk),
+                    .OCEA(1'b1),
+                    .CEA(1'b1),
+                    .RESETA(1'b0),
+                    .WREA(wr & ain==16'h4088 & mod_en),
+                    .CLKB(clk),
+                    .OCEB(1'b1),
+                    .CEB(1'b1),
+                    .RESETB(1'b0),
+                    .WREB(1'b0),
+                    .BLKSELA(),
+                    .BLKSELB(),
+                    .ADA(mod_ptr_in),
+                    .DIA({5'b0,din[2:0]}),
+                    .ADB(mod_ptr_out[5:1]),
+                    .DIB(0)
+                  );
+    defparam modtable.READ_MODE0 = 1'b0;
+    defparam modtable.READ_MODE1 = 1'b0;
+    defparam modtable.WRITE_MODE0 = 2'b00;
+    defparam modtable.WRITE_MODE1 = 2'b00;
+    defparam modtable.BIT_WIDTH_0 = 8;
+    defparam modtable.BIT_WIDTH_1 = 8;
+    defparam modtable.BLK_SEL_0 = 3'b000;
+    defparam modtable.BLK_SEL_1 = 3'b000;
+    defparam modtable.RESET_MODE = "SYNC";
+    // defparam modtable.INIT_RAM_00 = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+    // defparam modtable.INIT_RAM_3E = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+    // defparam modtable.INIT_RAM_3F = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+
 //   dpram #(.widthad_a(5)) modtable
 //     (
 //       .clock_a   (clk),
@@ -1026,7 +1271,40 @@ reg [7:0] modtable[0:1023]; // Block RAM for modtable
     wire [7:0] outA, outB;
     wire waveaddr = ain[15:6]==10'b0100_0000_01;  //4040..407F
 
-    reg [7:0] waveform[0:1023]; // Block RAM for WAVform
+    DPB waveform(
+                    .DOA(),
+                    .DOB(outB),
+                    .CLKA(m2),                    //write on posedge M2      
+                    .OCEA(1'b0),
+                    .CEA(1'b1),
+                    .RESETA(1'b0),
+                    .WREA(wr & wave_we & waveaddr),
+                    .CLKB(~m2),
+                    .OCEB(1'b0),
+                    .CEB(waveaddr),
+                    .RESETB(1'b0),
+                    .WREB(1'b0),                //cpu read
+                    .BLKSELA(),
+                    .BLKSELB(),
+                    .ADA({3'd0,wave_we?ain[5:0]:wave_ptr[5:0]}),
+                    .DIA(din),
+                    .ADB({3'd0,ain[5:0]}),
+                    .DIB(8'd0)
+                  );
+    defparam modtable.READ_MODE0 = 1'b0;
+    defparam modtable.READ_MODE1 = 1'b0;
+    defparam modtable.WRITE_MODE0 = 2'b00;
+    defparam modtable.WRITE_MODE1 = 2'b00;
+    defparam modtable.BIT_WIDTH_0 = 8;
+    defparam modtable.BIT_WIDTH_1 = 8;
+    defparam modtable.BLK_SEL_0 = 3'b000;
+    defparam modtable.BLK_SEL_1 = 3'b000;
+    defparam modtable.RESET_MODE = "SYNC";
+    // defparam modtable.INIT_RAM_00 = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+    // defparam modtable.INIT_RAM_3E = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+    // defparam modtable.INIT_RAM_3F = 256'h00A000000000000B00A000000000000B00A000000000000B00A000000000000B;
+
+
 //   dpram #(.widthad_a(6)) waveform
 //     (
 //       .clock_a   (clk),
