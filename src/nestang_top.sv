@@ -341,7 +341,8 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
   // Rewind
   wire NES_rewind_enable;
-  assign NES_rewind_enable = 0; // = (nes_btn[2] & nes_btn[6]) // Select+Left
+  // assign NES_rewind_enable = 0; // Select+Left
+  assign NES_rewind_enable = (nes_btn[2] && nes_btn[6]); // Select+Left
 
   // Main NES machine
   NES nes(
