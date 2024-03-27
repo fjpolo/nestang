@@ -392,7 +392,10 @@ module NES(
             chr_from_ppu,
             scanline,
             cycle,
-            mapper_ppu_flags
+            mapper_ppu_flags,
+            // Rewind
+            rewind_time_to_save,
+            i_rewind_enable
         );
 
   // -- Memory mapping logic

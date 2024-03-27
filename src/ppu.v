@@ -225,7 +225,11 @@ module SpriteRAM(input clk, input ce,
                  input oam_load,            // Load oam_ptr with specified value, when writing to NES $2004.
                  input [7:0] data_in,       // New value for oam or oam_ptr
                  output reg spr_overflow,   // Set to true if we had more than 8 objects on a scan line. Reset when exiting vblank.
-                 output reg sprite0);       // True if sprite#0 is included on the scan line currently being painted.
+                 output reg sprite0,        // True if sprite#0 is included on the scan line currently being painted.
+                 // Rewind
+                 input i_rewind_time_to_save,
+                 input i_rewind_enable
+                );
   reg [7:0] sprtemp[0:31];   // Sprite Temporary Memory. 32 bytes.
   reg [7:0] oam[0:255];      // Sprite OAM. 256 bytes.
   reg [7:0] oam_ptr;         // Pointer into oam_ptr.
@@ -243,6 +247,41 @@ module SpriteRAM(input clk, input ce,
   reg oam_wrapped;           // [wire] if new_oam or new_p wrapped.
   
   wire [7:0] sprtemp_data = sprtemp[sprtemp_ptr];
+
+  // Rewind: Registers
+    reg [7:0] sprtemp_rewind[0:31];
+    reg [7:0] oam_rewind[0:255];
+    reg [7:0] oam_ptr_rewind;
+    reg [2:0] p_rewind;
+    reg [1:0] state_rewind;
+    reg [4:0] sprtemp_ptr_rewind;
+    reg [7:0] new_oam_ptr_rewind;
+    reg [1:0] oam_inc_rewind;
+    reg sprite0_curr_rewind;
+    reg oam_wrapped_rewind;
+    reg spr_overflow_rewind;
+    reg sprite0_rewind;
+    reg [7:0] oam_bus_rewind;
+
+    // Rewind: Save state
+    always @(posedge i_rewind_time_to_save) begin
+      if(!i_rewind_enable) begin
+        // oam_rewind[0:255] <= oam[0:255];
+        // oam_ptr_rewind <= oam_ptr;
+        // new_oam_ptr_rewind <= new_oam_ptr;
+        // oam_inc_rewind <= oam_inc;
+        // oam_bus_rewind <= oam_bus;
+        sprtemp_rewind[0:31] <= sprtemp[0:31];
+        p_rewind <= p;
+        state_rewind <= state;
+        sprtemp_ptr_rewind <= sprtemp_ptr;
+        sprite0_curr_rewind <= sprite0_curr;
+        oam_wrapped_rewind <= oam_wrapped;
+        spr_overflow_rewind <= spr_overflow;
+        sprite0_rewind <= sprite0;
+      end
+    end
+
   always @*  begin
     // Compute address to read/write in temp sprite ram
     casez({cycle[8], cycle[2]}) 
@@ -342,7 +381,11 @@ module SpriteAddressGen(input clk, input ce,
                         output [12:0] vram_addr,// Low bits of address in VRAM that we'd like to read.
                         input [7:0] vram_data,  // Byte of VRAM in the specified address
                         output [3:0] load,      // Which subset of load_in that is now valid, will be loaded into SpritesGen.
-                        output [26:0] load_in); // Bits to load into SpritesGen.
+                        output [26:0] load_in,  // Bits to load into SpritesGen.
+                        // Rewind
+                        input i_rewind_time_to_save,
+                        input i_rewind_enable
+                      );
   reg [7:0] temp_tile;    // Holds the tile that we will get
   reg [3:0] temp_y;       // Holds the Y coord (will be swapped based on FlipY).
   reg flip_x, flip_y;     // If incoming bitmap data needs to be flipped in the X or Y direction.
@@ -368,10 +411,36 @@ module SpriteAddressGen(input clk, input ce,
   // selected pattern.
   assign vram_addr = {obj_size ? temp_tile[0] : obj_patt, 
                       temp_tile[7:1], obj_size ? y_f[3] : temp_tile[0], cycle[1], y_f[2:0] };
+
+  // Rewind: Registers
+  reg [7:0] temp_tile_rewind;
+  reg [3:0] temp_y_rewind;
+  reg flip_x_rewind, flip_y_rewind;
+  reg dummy_sprite_rewind;
+
+  // Rewind: Save state
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      temp_tile_rewind <= temp_tile;
+      temp_y_rewind <= temp_y;
+      flip_x_rewind <= flip_x;
+      flip_y_rewind <= flip_y;
+      dummy_sprite_rewind <= dummy_sprite;
+    end
+  end
+  
   always @(posedge clk) if (ce) begin
-    if (load_y) temp_y <= temp[3:0];
-    if (load_tile) temp_tile <= temp;
-    if (load_attr) {flip_y, flip_x, dummy_sprite} <= {temp[7:6], temp[4]};
+    if(i_rewind_enable) begin
+      temp_tile <= temp_tile_rewind;
+      temp_y <= temp_y_rewind;
+      flip_x <= flip_x;
+      flip_y <= flip_y_rewind;
+      dummy_sprite <= dummy_sprite_rewind;
+    end else begin
+      if (load_y) temp_y <= temp[3:0];
+      if (load_tile) temp_tile <= temp;
+      if (load_attr) {flip_y, flip_x, dummy_sprite} <= {temp[7:6], temp[4]};
+    end
   end
 //  always @(posedge clk) begin
 //    if (load[3]) $write("Loading pix1: %x\n", load_in[26:19]);
@@ -391,7 +460,11 @@ module BgPainter(input clk, input ce,
                  input [14:0] loopy,
                  output [7:0] name_table,  // VRAM name table to read next.
                  input [7:0] vram_data,
-                 output [3:0] pixel);
+                 output [3:0] pixel,
+                 // Rewind
+                 input i_rewind_time_to_save,
+                 input i_rewind_enable
+                );
   reg [15:0] playfield_pipe_1; // Name table pixel pipeline #1
   reg [15:0] playfield_pipe_2; // Name table pixel pipeline #2
   reg [8:0]  playfield_pipe_3; // Attribute table pixel pipe #1
@@ -409,30 +482,65 @@ module BgPainter(input clk, input ce,
     current_attribute_table = 0;
     bg0 = 0;
   end
+
+  // Rewind: Save state
+      reg [15:0] playfield_pipe_1_rewind;
+      reg [15:0] playfield_pipe_2_rewind;
+      reg [8:0]  playfield_pipe_3_rewind;
+      reg [8:0]  playfield_pipe_4_rewind;
+      reg [7:0] current_name_table_rewind;
+      reg [1:0] current_attribute_table_rewind;
+      reg [7:0] bg0_rewind;
+
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      playfield_pipe_1_rewind <= playfield_pipe_1;
+      playfield_pipe_2_rewind <= playfield_pipe_2;
+      playfield_pipe_3_rewind <= playfield_pipe_3;
+      playfield_pipe_4_rewind <= playfield_pipe_4;
+      current_name_table_rewind <= current_name_table;
+      current_attribute_table_rewind <= current_attribute_table;
+      bg0_rewind <= bg0;
+    end
+  end
+
   always @(posedge clk) if (ce) begin
-    case (cycle[2:0])
-    1: current_name_table <= vram_data;
-    3: current_attribute_table <= (!loopy[1] && !loopy[6]) ? vram_data[1:0] : 
-                                  ( loopy[1] && !loopy[6]) ? vram_data[3:2] :
-                                  (!loopy[1] &&  loopy[6]) ? vram_data[5:4] : 
-                                                             vram_data[7:6];
-    5: bg0 <= vram_data; // Pattern table bitmap #0
-//    7: bg1 <= vram_data; // Pattern table bitmap #1
-    endcase
-    if (enable) begin
-      playfield_pipe_1[14:0] <= playfield_pipe_1[15:1];
-      playfield_pipe_2[14:0] <= playfield_pipe_2[15:1];
-      playfield_pipe_3[7:0] <= playfield_pipe_3[8:1];
-      playfield_pipe_4[7:0] <= playfield_pipe_4[8:1];
-      // Load the new values into the shift registers at the last pixel.
-      if (cycle[2:0] == 7) begin
-        playfield_pipe_1[15:8] <= {bg0[0], bg0[1], bg0[2], bg0[3], bg0[4], bg0[5], bg0[6], bg0[7]};
-        playfield_pipe_2[15:8] <= {bg1[0], bg1[1], bg1[2], bg1[3], bg1[4], bg1[5], bg1[6], bg1[7]};
-        playfield_pipe_3[8] <= current_attribute_table[0];
-        playfield_pipe_4[8] <= current_attribute_table[1];
+    if(i_rewind_enable) begin
+      playfield_pipe_1 <= playfield_pipe_1_rewind;
+      playfield_pipe_2 <= playfield_pipe_2_rewind;
+      playfield_pipe_3 <= playfield_pipe_3_rewind;
+      playfield_pipe_4 <= playfield_pipe_4_rewind;
+      current_name_table <= current_name_table_rewind;
+      current_attribute_table <= current_attribute_table_rewind;
+      bg0 <= bg0_rewind;
+    end else begin
+      case (cycle[2:0])
+        1: current_name_table <= vram_data;
+        3: current_attribute_table <= (!loopy[1] && !loopy[6]) ? vram_data[1:0] : 
+                                      ( loopy[1] && !loopy[6]) ? vram_data[3:2] :
+                                      (!loopy[1] &&  loopy[6]) ? vram_data[5:4] : 
+                                                                vram_data[7:6];
+      5: bg0 <= vram_data; // Pattern table bitmap #0
+//      7: bg1 <= vram_data; // Pattern table bitmap #1
+      endcase
+      
+      if (enable) begin
+        playfield_pipe_1[14:0] <= playfield_pipe_1[15:1];
+        playfield_pipe_2[14:0] <= playfield_pipe_2[15:1];
+        playfield_pipe_3[7:0] <= playfield_pipe_3[8:1];
+        playfield_pipe_4[7:0] <= playfield_pipe_4[8:1];
+        
+        // Load the new values into the shift registers at the last pixel.
+        if (cycle[2:0] == 7) begin
+          playfield_pipe_1[15:8] <= {bg0[0], bg0[1], bg0[2], bg0[3], bg0[4], bg0[5], bg0[6], bg0[7]};
+          playfield_pipe_2[15:8] <= {bg1[0], bg1[1], bg1[2], bg1[3], bg1[4], bg1[5], bg1[6], bg1[7]};
+          playfield_pipe_3[8] <= current_attribute_table[0];
+          playfield_pipe_4[8] <= current_attribute_table[1];
+        end
       end
     end
   end
+
   assign name_table = current_name_table;
   wire [3:0] i = {1'b0, fine_x_scroll};
   assign pixel = {playfield_pipe_4[i], playfield_pipe_3[i],
@@ -447,18 +555,44 @@ module PixelMuxer(input [3:0] bg, input [3:0] obj, input obj_prio, output [3:0] 
 endmodule
  
 
-module PaletteRam(input clk, input ce, input [4:0] addr, input [5:0] din, output [5:0] dout, input write);
+module PaletteRam(
+                    input clk,
+                    input ce,
+                    input [4:0] addr,
+                    input [5:0] din,
+                    output [5:0] dout,
+                    input write,
+                    // Rewind
+                    input i_rewind_time_to_save,
+                    input i_rewind_enable
+                  );
   reg [5:0] palette [0:31];
   initial begin
      $readmemh("oam_palette.txt", palette);
+     $readmemh("oam_palette.txt", palette_rewind);
   end
   // Force read from backdrop channel if reading from any addr 0.
   wire [4:0] addr2 = (addr[1:0] == 0) ? 0 : addr;
   assign dout = palette[addr2];
+
+  // Rewind: Save state
+  reg [5:0] palette_rewind[0:31];
+
+  // Rewind: Save States
+  always @(posedge i_rewind_time_to_save) begin
+    if(!i_rewind_enable) begin
+      palette_rewind <= palette;
+    end
+  end
+
   always @(posedge clk) if (ce && write) begin
-    // Allow writing only to x0
-    if (!(addr[3:2] != 0 && addr[1:0] == 0))
-      palette[addr2] <= din;
+    if(i_rewind_enable) begin
+      palette <= palette_rewind;
+    end else begin
+      // Allow writing only to x0
+      if (!(addr[3:2] != 0 && addr[1:0] == 0))
+        palette[addr2] <= din;
+    end
   end
 endmodule  // PaletteRam
  
@@ -477,7 +611,11 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
            output [7:0] vram_dout,
            output [8:0] scanline,
            output [8:0] cycle,
-           output [19:0] mapper_ppu_flags);
+           output [19:0] mapper_ppu_flags,
+           // Rewind
+           input i_rewind_time_to_save,
+           input i_rewind_enable
+           );
   // These are stored in control register 0
   reg obj_patt; // Object pattern table
   reg bg_patt;  // Background pattern table
@@ -516,10 +654,47 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
   wire entering_vblank;     // 
   wire is_pre_render_line;  // True while we're on the pre render scanline
   wire is_rendering = (enable_playfield || enable_objects) && !is_in_vblank && scanline != 240;
-  
+
+  // Rewind: Registers
+  reg obj_patt_rewind;
+  reg bg_patt_rewind;
+  reg obj_size_rewind;
+  reg vbl_enable_rewind;
+  reg grayscale_rewind;
+  reg playfield_clip_rewind;
+  reg object_clip_rewind;
+  reg enable_playfield_rewind;
+  reg enable_objects_rewind;
+  reg [2:0] color_intensity_rewind;
+  reg nmi_occured_rewind = 0;
+  reg [7:0] vram_latch_rewind;
+  reg sprite0_hit_bg_rewind = 0;
+  reg vram_read_delayed_rewind = 0;
+  reg [7:0] latched_dout_rewind;
+
+  // Rewind: Save States
+  always @(posedge i_rewind_time_to_save) begin
+      if(!i_rewind_enable) begin
+        obj_patt_rewind <= obj_patt;
+        bg_patt_rewind <= bg_patt;
+        obj_size_rewind <= obj_size;
+        vbl_enable_rewind <= vbl_enable;
+        grayscale_rewind <= grayscale;
+        playfield_clip_rewind <= playfield_clip;
+        object_clip_rewind <= object_clip;
+        enable_playfield_rewind <= enable_playfield;
+        enable_objects_rewind <= enable_objects;
+        color_intensity_rewind <= color_intensity;
+        nmi_occured_rewind <= nmi_occured;
+        vram_latch_rewind <= vram_latch;
+        sprite0_hit_bg_rewind <= sprite0_hit_bg;
+        vram_read_delayed_rewind <= vram_read_delayed;
+        latched_dout_rewind <= latched_dout;
+      end
+  end
+
   ClockGen clock(clk, ce, reset, is_rendering, scanline, cycle, is_in_vblank, end_of_line, at_last_cycle_group,
                  exiting_vblank, entering_vblank, is_pre_render_line);
-  
   
   // The loopy module handles updating of the loopy address
   wire [14:0] loopy;
@@ -532,8 +707,7 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
   // Paints background
   wire [7:0] bg_name_table;
   wire [3:0] bg_pixel_noblank;
-  BgPainter bg_painter(clk, ce, !at_last_cycle_group, cycle[2:0], fine_x_scroll, loopy, bg_name_table, vram_din, bg_pixel_noblank);
-  
+  BgPainter bg_painter(clk, ce, !at_last_cycle_group, cycle[2:0], fine_x_scroll, loopy, bg_name_table, vram_din, bg_pixel_noblank, i_rewind_time_to_save, i_rewind_enable);  
   // Blank out BG in the leftmost 8 pixels?
   wire show_bg_on_pixel = (playfield_clip || (cycle[7:3] != 0)) && enable_playfield;
   wire [3:0] bg_pixel = {bg_pixel_noblank[3:2], show_bg_on_pixel ? bg_pixel_noblank[1:0] : 2'b00};
@@ -544,17 +718,20 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
   wire sprite_overflow;
   wire obj0_on_line;                        // True if sprite#0 is included on the current line
   SpriteRAM sprite_ram(clk, ce,
-                       before_line,         // Condition for resetting the sprite line state.
-                       is_rendering,        // Condition for enabling sprite ram logic. Check so we're not on 
-                       exiting_vblank,
-                       obj_size,
-                       scanline, cycle,
-                       oam_bus,
-                       write && (ain == 3), // Write to oam_ptr
-                       write && (ain == 4), // Write to oam[oam_ptr]
-                       din,
-                       sprite_overflow,
-                       obj0_on_line);
+                      before_line,         // Condition for resetting the sprite line state.
+                      is_rendering,        // Condition for enabling sprite ram logic. Check so we're not on 
+                      exiting_vblank,
+                      obj_size,
+                      scanline, cycle,
+                      oam_bus,
+                      write && (ain == 3), // Write to oam_ptr
+                      write && (ain == 4), // Write to oam[oam_ptr]
+                      din,
+                      sprite_overflow,
+                      obj0_on_line,
+                      i_rewind_time_to_save,
+                      i_rewind_enable
+                    );
   wire [4:0] obj_pixel_noblank;
   wire [12:0] sprite_vram_addr;
   wire is_obj0_pixel;               // True if obj_pixel originates from sprite0.
@@ -562,15 +739,20 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
   wire [26:0] spriteset_load_in;      // Bits to load into SpriteSet
   // Between 256..319 (64 cycles), fetches bitmap data for the 8 sprites and fills in the SpriteSet
   // so that it can start drawing on the next frame.
-  SpriteAddressGen address_gen(clk, ce,
-                               cycle[8] && !cycle[6],     // Load sprites between 256..319
-                               obj_size, obj_patt,        // Object size and pattern table
-                               cycle[2:0],                // Cycle counter
-                               oam_bus,                   // Info from temp buffer.
-                               sprite_vram_addr,          // [out] VRAM Address that we want data from
-                               vram_din,                  // [in] Data at the specified address
-                               spriteset_load,
-                               spriteset_load_in);        // Which parts of SpriteGen to load
+  SpriteAddressGen address_gen(
+                                clk, 
+                                ce,
+                                cycle[8] && !cycle[6],     // Load sprites between 256..319
+                                obj_size, obj_patt,        // Object size and pattern table
+                                cycle[2:0],                // Cycle counter
+                                oam_bus,                   // Info from temp buffer.
+                                sprite_vram_addr,          // [out] VRAM Address that we want data from
+                                vram_din,                  // [in] Data at the specified address
+                                spriteset_load,
+                                spriteset_load_in,        // Which parts of SpriteGen to load
+                                i_rewind_time_to_save,
+                                i_rewind_enable
+                              );
   // Between 0..255 (256 cycles), draws pixels.
   // Between 256..319 (64 cycles), will be populated for next line
   SpriteSet sprite_gen(clk, ce, !cycle[8], spriteset_load, spriteset_load_in, obj_pixel_noblank, is_obj0_pixel);
@@ -580,25 +762,28 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
   
   reg sprite0_hit_bg = 0;            // True if sprite#0 has collided with the BG in the last frame.
   always @(posedge clk) if (ce) begin
-    if (exiting_vblank)
-      sprite0_hit_bg <= 0;
-    else if (is_rendering &&         // Object rendering is enabled
-             !cycle[8] &&            // X Pixel 0..255
-             cycle[7:0] != 255 &&    // X pixel != 255
-             !is_pre_render_line &&  // Y Pixel 0..239
-             obj0_on_line &&         // True if sprite#0 is included on the scan line.
-             is_obj0_pixel &&        // True if the pixel came from tempram #0.
-             show_obj_on_pixel &&
-             bg_pixel[1:0] != 0) begin // Background pixel nonzero.
-      sprite0_hit_bg <= 1;
-      
+    if(i_rewind_enable) begin
+      sprite0_hit_bg <= sprite0_hit_bg_rewind;
+    end else begin
+      if (exiting_vblank)
+        sprite0_hit_bg <= 0;
+      else if (is_rendering &&         // Object rendering is enabled
+              !cycle[8] &&            // X Pixel 0..255
+              cycle[7:0] != 255 &&    // X pixel != 255
+              !is_pre_render_line &&  // Y Pixel 0..239
+              obj0_on_line &&         // True if sprite#0 is included on the scan line.
+              is_obj0_pixel &&        // True if the pixel came from tempram #0.
+              show_obj_on_pixel &&
+              bg_pixel[1:0] != 0) begin // Background pixel nonzero.
+        sprite0_hit_bg <= 1;
+      end
+
+//      if (!cycle[8] && is_visible_line && obj0_on_line && is_obj0_pixel)
+//        $write("Sprite0 hit bg scan %d!!\n", scanline);
+
+//      if (is_obj0_pixel)
+//        $write("drawing obj0 pixel %d/%d\n", scanline, cycle);
     end
-
-//    if (!cycle[8] && is_visible_line && obj0_on_line && is_obj0_pixel)
-//      $write("Sprite0 hit bg scan %d!!\n", scanline);
-
-//    if (is_obj0_pixel)
-//      $write("drawing obj0 pixel %d/%d\n", scanline, cycle);
   end
  
   wire [3:0] pixel;
@@ -632,41 +817,55 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
 
  
   always @(posedge clk) if (ce) begin
-//    if (!is_in_vblank && write)
-//      $write("%d/%d: $200%d <= %x\n", scanline, cycle, ain, din);
-    if (write) begin
-      case (ain)
-      0: begin // PPU Control Register 1
-      // t:....BA.. ........ = d:......BA
-        obj_patt <= din[3];
-        bg_patt <= din[4];
-        obj_size <= din[5];
-        vbl_enable <= din[7];
-        
-        //$write("PPU Control #0 <= %X\n", din);
+    if(i_rewind_enable) begin
+      obj_patt <= obj_patt;
+      bg_patt <= bg_patt;
+      obj_size <= obj_size_rewind;
+      vbl_enable <= vbl_enable_rewind;
+      grayscale <= grayscale_rewind;
+      playfield_clip <= playfield_clip_rewind;
+      object_clip <= object_clip_rewind;
+      enable_playfield <= enable_playfield_rewind;
+      enable_objects <= enable_objects_rewind;
+      color_intensity <= color_intensity_rewind;
+      nmi_occured <= nmi_occured_rewind;
+    end else begin
+//      if (!is_in_vblank && write)
+//        $write("%d/%d: $200%d <= %x\n", scanline, cycle, ain, din);
+      if (write) begin
+        case (ain)
+        0: begin // PPU Control Register 1
+        // t:....BA.. ........ = d:......BA
+          obj_patt <= din[3];
+          bg_patt <= din[4];
+          obj_size <= din[5];
+          vbl_enable <= din[7];
+          
+          //$write("PPU Control #0 <= %X\n", din);
+        end
+        1: begin // PPU Control Register 2
+          grayscale <= din[0];
+          playfield_clip <= din[1];
+          object_clip <= din[2];
+          enable_playfield <= din[3];
+          enable_objects <= din[4];
+          color_intensity <= din[7:5];
+          if (!din[3] && scanline == 59)
+            $write("Disabling playfield at cycle %d\n", cycle);
+        end
+        endcase
       end
-      1: begin // PPU Control Register 2
-        grayscale <= din[0];
-        playfield_clip <= din[1];
-        object_clip <= din[2];
-        enable_playfield <= din[3];
-        enable_objects <= din[4];
-        color_intensity <= din[7:5];
-        if (!din[3] && scanline == 59)
-          $write("Disabling playfield at cycle %d\n", cycle);
-      end
-      endcase
+      
+      // Reset frame specific counters upon exiting vblank
+      if (exiting_vblank)
+        nmi_occured <= 0;
+      // Set the 
+      if (entering_vblank)
+        nmi_occured <= 1;
+      // Reset NMI register when reading from Status
+      if (read && ain == 2)
+        nmi_occured <= 0;
     end
-     
-    // Reset frame specific counters upon exiting vblank
-    if (exiting_vblank)
-      nmi_occured <= 0;
-    // Set the 
-    if (entering_vblank)
-      nmi_occured <= 1;
-    // Reset NMI register when reading from Status
-    if (read && ain == 2)
-      nmi_occured <= 0;
   end
   
   // If we're triggering a VBLANK NMI 
@@ -686,18 +885,22 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
 
   reg [7:0] latched_dout;
   always @* begin
-    case (ain)
-    2: latched_dout = {nmi_occured,
-               sprite0_hit_bg,
-               sprite_overflow,
-               5'b00000};
-    4: latched_dout = oam_bus;
-    default: if (is_pal_address) begin
-        latched_dout = {2'b00, color};
-      end else begin
-        latched_dout = vram_latch;
-      end 
-    endcase
+    if(i_rewind_enable) begin
+      latched_dout <= latched_dout_rewind;
+    end else begin
+      case (ain)
+      2: latched_dout = {nmi_occured,
+                sprite0_hit_bg,
+                sprite_overflow,
+                5'b00000};
+      4: latched_dout = oam_bus;
+      default: if (is_pal_address) begin
+          latched_dout = {2'b00, color};
+        end else begin
+          latched_dout = vram_latch;
+        end 
+      endcase
+    end
   end
   
   assign dout = latched_dout;

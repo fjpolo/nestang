@@ -37,7 +37,7 @@ module nestang_top (
 
     // MicroSD
     output sd_clk,
-    inout sd_cmd,      // MOSI
+    inout sd_cmd,       // MOSI
     input  sd_dat0,     // MISO
     output sd_dat1,     // 1
     output sd_dat2,     // 1
