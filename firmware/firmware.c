@@ -1,33 +1,34 @@
-// Simple firmware for SNESTang
+// Simple firmware for nestang
 // nand2mario, 2024.1
+// fjpolo, 2024.3
 //
 // Needs xpack-gcc risc-v gcc: https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/
-// Use build.bat to build. Then burn firmware.bin to SPI flash address 0x500000 with Gowin programmer.
+// Use build.bat or build.sh to build. Then burn firmware.bin to SPI flash address 0x500000 with Gowin programmer.
 
 #include <stdbool.h>
 #include "picorv32.h"
 #include "fatfs/ff.h"
 #include "firmware.h"
 
-#define OPTION_FILE "/snestang.ini"
+#define OPTION_FILE "/nestang.ini"
 #define OPTION_INVALID 2
 
 #define OPTION_OSD_KEY_SELECT_START 1
 #define OPTION_OSD_KEY_SELECT_RB 2
 
-// SNES BSRAM is mapped at address 7MB 
-volatile uint8_t *SNES_BSRAM = (volatile uint8_t *)0x07000000;
+// NES BSRAM is mapped at address 7MB 
+volatile uint8_t *NES_BSRAM = (volatile uint8_t *)0x07000000;
 
 int option_osd_key = OPTION_OSD_KEY_SELECT_RB;
 #define OSD_KEY_CODE (option_osd_key == 1 ? 0xC : 0x804)
 bool option_backup_bsram = false;
 
-bool snes_running;
-int snes_ramsize;
-bool snes_backup_valid;		// whether it is okay to save
-char snes_backup_name[256];
-uint16_t snes_bsram_crc16;
-uint32_t snes_backup_time;
+bool nes_running;
+int nes_ramsize;
+bool nes_backup_valid;		// whether it is okay to save
+char nes_backup_name[256];
+uint16_t NES_BSRAM_crc16;
+uint32_t nes_backup_time;
 
 // return 0: success, 1: no option file found, 2: option file corrupt
 int load_option()  {
@@ -102,7 +103,7 @@ int save_option() {
 		
 save_options_close:
 	f_close(&f);
-	// hide snestang.ini in dir list
+	// hide nestang.ini in dir list
 	f_chmod(OPTION_FILE, AM_HID, AM_HID);
 	return 0;
 }
@@ -379,9 +380,9 @@ void menu_options() {
 
 int in_game;
 
-// return 0 if snes header is successfully parsed at off
+// return 0 if nes header is successfully parsed at off
 // typ 0: LoROM, 1: HiROM, 2: ExHiROM
-int parse_snes_header(FIL *fp, int pos, int file_size, int typ, uint8_t *hdr, int *map_ctrl, int *rom_type_header, int *rom_size, int *ram_size, int *company) {
+int parse_nes_header(FIL *fp, int pos, int file_size, int typ, uint8_t *hdr, int *map_ctrl, int *rom_type_header, int *rom_size, int *ram_size, int *company) {
 	int br;
 	if (f_lseek(fp, pos))
 		return 1;
@@ -447,10 +448,10 @@ int loadrom(int rom) {
 		status("Only .smc or .sfc supported");
 		goto loadrom_end;
 	}
-	// snes_backup_name = <base>.srm
+	// nes_backup_name = <base>.srm
 	int base_len = p-file_names[rom];
-	strncpy(snes_backup_name, file_names[rom], base_len);
-	strcpy(snes_backup_name+base_len, ".srm");
+	strncpy(nes_backup_name, file_names[rom], base_len);
+	strcpy(nes_backup_name+base_len, ".srm");
 
 	// initiaze sd again to be sure
 	if (sd_init() != 0) return 99;
@@ -463,18 +464,18 @@ int loadrom(int rom) {
 	int br, total = 0;
 	int size = file_sizes[rom];
 	int map_ctrl, rom_type_header, rom_size, ram_size, company;
-	// parse SNES header from ROM file
+	// parse NES header from ROM file
 	int off = size & 0x3ff;		// rom header (0 or 512)
 	int header_pos;
 	DEBUG("off=%d\n", off);
 	
 	header_pos = 0x7fc0 + off;
-	if (parse_snes_header(&f, header_pos, size-off, 0, load_buf, &map_ctrl, &rom_type_header, &rom_size, &ram_size, &company)) {
+	if (parse_nes_header(&f, header_pos, size-off, 0, load_buf, &map_ctrl, &rom_type_header, &rom_size, &ram_size, &company)) {
 		header_pos = 0xffc0 + off;
-		if (parse_snes_header(&f, header_pos, size-off, 1, load_buf, &map_ctrl, &rom_type_header, &rom_size, &ram_size, &company)) {
+		if (parse_nes_header(&f, header_pos, size-off, 1, load_buf, &map_ctrl, &rom_type_header, &rom_size, &ram_size, &company)) {
 			header_pos = 0x40ffc0 + off;
-			if (parse_snes_header(&f, header_pos, size-off, 2, load_buf, &map_ctrl, &rom_type_header, &rom_size, &ram_size, &company)) {
-				status("Not a SNES ROM file");
+			if (parse_nes_header(&f, header_pos, size-off, 2, load_buf, &map_ctrl, &rom_type_header, &rom_size, &ram_size, &company)) {
+				status("Not a NES ROM file");
 				delay(200);
 				goto loadrom_close_file;
 			}
@@ -482,26 +483,26 @@ int loadrom(int rom) {
 	}
 
 	// load actual ROM
-	snes_ctrl(1);		// enable game loading, this resets SNES
-	snes_running = false;
+	nes_ctrl(1);		// enable game loading, this resets NES
+	nes_running = false;
 
-	// Send 64-byte header to snes
+	// Send 64-byte header to nes
 	for (int i = 0; i < 64; i += 4) {
 		uint32_t *w = (uint32_t *)(load_buf + i);
-		snes_data(*w);
+		nes_data(*w);
 	}
 
-	// Send rom content to snes
+	// Send rom content to nes
 	if ((r = f_lseek(&f, off)) != FR_OK) {
 		status("Seek failure");
-		goto loadrom_snes_end;
+		goto loadrom_nes_end;
 	}
 	do {
 		if ((r = f_read(&f, load_buf, 1024, &br)) != FR_OK)
 			break;
 		for (int i = 0; i < br; i += 4) {
 			uint32_t *w = (uint32_t *)(load_buf + i);
-			snes_data(*w);				// send actual ROM data
+			nes_data(*w);				// send actual ROM data
 		}
 		total += br;
 		if ((total & 0xffff) == 0) {	// display progress every 64KB
@@ -518,18 +519,18 @@ int loadrom(int rom) {
 	} while (br == 1024);
 
 	// load BSRAM backup
-	snes_ramsize = ram_size == 0 ? 0 : ((1 << ram_size) << 10);
-	if (snes_ramsize > 0)
-		memset((uint8_t *)0x700000, 0, snes_ramsize);		// clear BSRAM
-	backup_load(snes_backup_name, snes_ramsize);
+	nes_ramsize = ram_size == 0 ? 0 : ((1 << ram_size) << 10);
+	if (nes_ramsize > 0)
+		memset((uint8_t *)0x700000, 0, nes_ramsize);		// clear BSRAM
+	backup_load(nes_backup_name, nes_ramsize);
 
 	status("Success");
-	snes_running = true;
+	nes_running = true;
 
 	overlay(0);		// turn off OSD
 
-loadrom_snes_end:
-	snes_ctrl(0);	// turn off game loading, this starts SNES
+loadrom_nes_end:
+	nes_ctrl(0);	// turn off game loading, this starts NES
 loadrom_close_file:
 	f_close(&f);
 loadrom_end:
@@ -537,7 +538,7 @@ loadrom_end:
 }
 
 void backup_load(char *name, int size) {
-	snes_backup_valid = false;
+	nes_backup_valid = false;
 	if (!option_backup_bsram || size == 0) return;
 	char path[266] = "/saves/";
 	FILINFO fno;
@@ -550,11 +551,11 @@ void backup_load(char *name, int size) {
 			goto backup_load_crc;
 		}
 	}
-	strcat(path, snes_backup_name);
-	uart_printf("Loading bsram from: %s\n", snes_backup_name);
+	strcat(path, nes_backup_name);
+	uart_printf("Loading bsram from: %s\n", nes_backup_name);
 	FIL f;
 	if (f_open(&f, path, FA_READ) != FR_OK) {
-		snes_backup_valid = true;					// new save file, mark as valid
+		nes_backup_valid = true;					// new save file, mark as valid
 		uart_printf("Cannot open bsram file, assuming new\n");
 		goto backup_load_crc;
 	}
@@ -567,20 +568,20 @@ void backup_load(char *name, int size) {
 		p += br;
 		load += br;
 	}
-	snes_backup_valid = true;
+	nes_backup_valid = true;
 	f_close(&f);
 	int crc = gen_crc16(bsram, size);
 	uart_printf("Bsram backup loaded %d bytes CRC=%x.\n", load, crc);
 
 backup_load_crc:
-	snes_bsram_crc16 = gen_crc16(bsram, size);
+	NES_BSRAM_crc16 = gen_crc16(bsram, size);
 
 	return;
 }
 
 // return 0: successfully saved, 1: BSRAM unchanged, 2: file write failure
 int backup_save(char *name, int size) {
-	if (!option_backup_bsram || !snes_backup_valid || size == 0) return 1;
+	if (!option_backup_bsram || !nes_backup_valid || size == 0) return 1;
 	char path[266] = "/saves/";
 	FIL f;
 	uint8_t *bsram = (uint8_t *)0x700000;		// directly read from BSRAM
@@ -589,10 +590,10 @@ int backup_save(char *name, int size) {
 	// first check if BSRAM content is changed since last save
 	int newcrc = gen_crc16(bsram, size);
 	uart_printf("New CRC: %x, size=%d\n", newcrc, size);
-	if (newcrc == snes_bsram_crc16)
+	if (newcrc == NES_BSRAM_crc16)
 		return 1;
 
-	strcat(path, snes_backup_name);
+	strcat(path, nes_backup_name);
 	if (f_open(&f, path, FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
 		status("Cannot write save file");
 		uart_printf("Cannot write save file");
@@ -608,7 +609,7 @@ int backup_save(char *name, int size) {
 		goto bsram_save_close;
 	}
 	// }
-	snes_bsram_crc16 = newcrc;
+	NES_BSRAM_crc16 = newcrc;
 
 bsram_save_close:
 	f_close(&f);
@@ -617,20 +618,20 @@ bsram_save_close:
 
 int backup_success_time;
 void backup_process() {
-	if (!snes_running || !option_backup_bsram || snes_ramsize == 0)
+	if (!nes_running || !option_backup_bsram || nes_ramsize == 0)
 		return;
 	int t = time_millis();
-	if (t - snes_backup_time >= 10000) {
+	if (t - nes_backup_time >= 10000) {
 		// need to save
-		int r = backup_save(snes_backup_name, snes_ramsize);
+		int r = backup_save(nes_backup_name, nes_ramsize);
 		if (r == 0)
 			backup_success_time = t;
 		if (backup_success_time != 0) {
 			status("");
 			printf("BSRAM saved %ds ago ", (t-backup_success_time)/1000);
-			print_hex_digits(snes_bsram_crc16, 4);
+			print_hex_digits(NES_BSRAM_crc16, 4);
 		}
-		snes_backup_time = t;
+		nes_backup_time = t;
 	}
 }
 
@@ -722,7 +723,7 @@ int main() {
 		clear();
 		cursor(2, 10);
 		//     01234567890123456789012345678901
-		print("~~~ Welcome to SNESTang ~~~");
+		print("~~~ Welcome to nestang ~~~");
 		cursor(2, 12);
 		print("1) Load ROM from SD card\n");
 		cursor(2, 13);

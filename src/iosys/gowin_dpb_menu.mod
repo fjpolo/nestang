@@ -7,7 +7,7 @@
 
 -mod_name gowin_dpb_menu
 -file_name gowin_dpb_menu
--path D:/Gowin/dev/snes-experiments/10.tinysnes_m138k/src/
+-path D:/Gowin/dev/snes-experiments/10.tinynes_m138k/src/
 -type RAM_DP
 -file_type vlg
 -bram_b true
@@ -22,5 +22,5 @@
 -write_mode_1 normal
 -speed false
 -reset_mode sync
--init_file D:\Gowin\dev\snes-experiments\10.tinysnes_m138k\src\font.mi
+-init_file D:\Gowin\dev\snes-experiments\10.tinynes_m138k\src\font.mi
 -init_match port_A

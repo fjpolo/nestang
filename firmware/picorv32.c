@@ -228,10 +228,10 @@ int joy_choice(int start_line, int len, int *active, int overlay_key_code) {
    return 0;      
 }
 
-void snes_ctrl(uint32_t ctrl) {
+void nes_ctrl(uint32_t ctrl) {
    reg_romload_ctrl = ctrl;
 }
-extern void snes_data(uint32_t data) {
+extern void nes_data(uint32_t data) {
    reg_romload_data = data;
 }
 

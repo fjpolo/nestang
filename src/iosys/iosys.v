@@ -1,4 +1,4 @@
-// IOSys - PicoRV32-based IO subsystem for snestang
+// IOSys - PicoRV32-based IO subsystem for nestang
 //
 // IOSys provides the following functionality,
 // - Menu system
@@ -10,7 +10,7 @@
 // This is similar to the IO controller of MIST, or HPS of MiSTer.
 //
 // The softcore runs RV32I at 21.6Mhz and uses SDRAM as main memory. Firmware is 
-// loaded from SPI flash on the board. Firmware source is in /snestang/firmware.
+// loaded from SPI flash on the board. Firmware source is in /nestang/firmware.
 // 
 // Author: nand2mario, 1/2024
 
@@ -32,7 +32,7 @@
 
 module iosys #(parameter FREQ=21_477_000)
 (
-    input clk,                      // SNES mclk
+    input clk,                      // NES mclk
     input hclk,                     // hdmi clock
 //    input clkref,                   // 1/2 of mclk, for sdram access synchronization
     input resetn,
@@ -47,7 +47,7 @@ module iosys #(parameter FREQ=21_477_000)
 
     // ROM loading interface
     output reg rom_loading,         // 0-to-1 loading starts, 1-to-0 loading is finished
-    output [7:0] rom_do,            // first 64 bytes are snes header + 32 bytes after snes header 
+    output [7:0] rom_do,            // first 64 bytes are nes header + 32 bytes after snes header 
     output reg rom_do_valid,        // strobe for rom_do
     
     // 32-bit wide memory interface for risc-v softcore
