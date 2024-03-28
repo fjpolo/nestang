@@ -3,3 +3,8 @@ impl
 nes.gprj.user
 
 *.vcd
+
+# Softcore
+*.bin
+*.elf
+*.elf.list
