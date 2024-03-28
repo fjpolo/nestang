@@ -52,10 +52,7 @@ module MemoryController(
     output reg        rv_req_ack,   // ready for new requests. read data available on NEXT mclk
     input             rv_we
 
-    // output            refreshing,
     // output reg [23:0] total_refresh,
-
-    // output reg        busy
 );
 
 reg [22:0] MemAddr;

@@ -88,7 +88,7 @@ module iosys #(parameter FREQ=21_477_000)
 /* verilator lint_off PINMISSING */
 /* verilator lint_off WIDTHTRUNC */
 
-localparam FIRMWARE_SIZE = 256*1024;
+localparam FIRMWARE_SIZE = 256*1024;    // 256kiB
 
 reg flash_loaded;
 reg flash_loading;
@@ -104,12 +104,19 @@ reg [3:0] flash_wstrb;
 reg flash_wr;
 
 // Load 256KB of ROM from flash address 0x500000 into SDRAM at address 0x0
-spiflash #(.ADDR(24'h500000), .LEN(FIRMWARE_SIZE)) flash (
-    .clk(clk), .resetn(resetn),
-    .ncs(flash_spi_cs_n), .miso(flash_spi_miso), .mosi(flash_spi_mosi),
+spiflash #(.ADDR(24'h50_0000), .LEN(FIRMWARE_SIZE)) flash (
+    // System
+    .clk(clk),
+    .resetn(resetn),
+    // SPI pins
+    .ncs(flash_spi_cs_n),
+    .miso(flash_spi_miso),
+    .mosi(flash_spi_mosi),
     .sck(flash_spi_clk),
-
-    .start(flash_start), .dout(flash_dout), .dout_strb(flash_out_strb),
+    // IOs
+    .start(flash_start),
+    .dout(flash_dout),
+    .dout_strb(flash_out_strb),
     .busy()
 );
 
@@ -137,10 +144,10 @@ always @(posedge clk) begin
                 flash_wr <= 1;
 
                 case (next_addr[1:0])
-                2'b00: flash_wstrb <= 4'b0001;
-                2'b01: flash_wstrb <= 4'b0010;
-                2'b10: flash_wstrb <= 4'b0100;
-                2'b11: flash_wstrb <= 4'b1000;
+                    2'b00: flash_wstrb <= 4'b0001;
+                    2'b01: flash_wstrb <= 4'b0010;
+                    2'b10: flash_wstrb <= 4'b0100;
+                    2'b11: flash_wstrb <= 4'b1000;
                 endcase
 
                 if (next_addr == FIRMWARE_SIZE-1) begin
@@ -220,91 +227,91 @@ picorv32 #(
     .mem_wdata(mem_wdata), .mem_wstrb(mem_wstrb), .mem_rdata(mem_rdata)
 );
 
-// text display @ 0x0200_0000
-textdisp disp (
-    .clk(clk), .hclk(hclk), .resetn(resetn),
-    .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(overlay_color),
-    .reg_char_we(textdisp_reg_char_sel ? mem_wstrb : 4'b0),
-    .reg_char_di(mem_wdata) 
-);
+// // text display @ 0x0200_0000
+// textdisp disp (
+//     .clk(clk), .hclk(hclk), .resetn(resetn),
+//     .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(overlay_color),
+//     .reg_char_we(textdisp_reg_char_sel ? mem_wstrb : 4'b0),
+//     .reg_char_di(mem_wdata) 
+// );
 
-// toggle overlay display on/off
-reg overlay_buf = 1;
-assign overlay = overlay_buf;
-always @(posedge clk) begin
-    if (~resetn) begin
-        overlay_buf <= 1;
-    end else begin
-        if (textdisp_reg_char_sel && mem_wstrb[0]) begin
-            case (mem_wdata[25:24])
-            2'd1: overlay_buf <= 1;
-            2'd2: overlay_buf <= 0;
-            default: ;
-            endcase
-        end 
-    end
-end
+// // toggle overlay display on/off
+// reg overlay_buf = 1;
+// assign overlay = overlay_buf;
+// always @(posedge clk) begin
+//     if (~resetn) begin
+//         overlay_buf <= 1;
+//     end else begin
+//         if (textdisp_reg_char_sel && mem_wstrb[0]) begin
+//             case (mem_wdata[25:24])
+//             2'd1: overlay_buf <= 1;
+//             2'd2: overlay_buf <= 0;
+//             default: ;
+//             endcase
+//         end 
+//     end
+// end
 
-// uart @ 0x0200_0004 & 0x200_0008
-simpleuart simpleuart (
-    .clk         (clk         ),
-    .resetn      (resetn       ),
+// // uart @ 0x0200_0004 & 0x200_0008
+// simpleuart simpleuart (
+//     .clk         (clk         ),
+//     .resetn      (resetn       ),
 
-    .ser_tx      (uart_tx      ),
-    .ser_rx      (uart_rx      ),
+//     .ser_tx      (uart_tx      ),
+//     .ser_rx      (uart_rx      ),
 
-    .reg_div_we  (simpleuart_reg_div_sel ? mem_wstrb : 4'b0),
-    .reg_div_di  (mem_wdata),
-    .reg_div_do  (simpleuart_reg_div_do),
+//     .reg_div_we  (simpleuart_reg_div_sel ? mem_wstrb : 4'b0),
+//     .reg_div_di  (mem_wdata),
+//     .reg_div_do  (simpleuart_reg_div_do),
 
-    .reg_dat_we  (simpleuart_reg_dat_sel ? mem_wstrb[0] : 1'b0),
-    .reg_dat_re  (simpleuart_reg_dat_sel && !mem_wstrb),
-    .reg_dat_di  (mem_wdata),
-    .reg_dat_do  (simpleuart_reg_dat_do),
-    .reg_dat_wait(simpleuart_reg_dat_wait)
-);
+//     .reg_dat_we  (simpleuart_reg_dat_sel ? mem_wstrb[0] : 1'b0),
+//     .reg_dat_re  (simpleuart_reg_dat_sel && !mem_wstrb),
+//     .reg_dat_di  (mem_wdata),
+//     .reg_dat_do  (simpleuart_reg_dat_do),
+//     .reg_dat_wait(simpleuart_reg_dat_wait)
+// );
 
-// spi sd card @ 0x0200_000c
-assign sd_dat1 = 1;
-assign sd_dat2 = 1;
-assign sd_dat3 = 0;
-simplespimaster simplespi (
-    .clk(clk), .resetn(resetn),
-    .sck(sd_clk), .mosi(sd_cmd), .miso(sd_dat0),
-    .reg_byte_we(simplespimaster_reg_byte_sel ? mem_wstrb[0] : 1'b0),
-    .reg_word_we(simplespimaster_reg_word_sel ? mem_wstrb[0] : 1'b0),
-    .reg_di(mem_wdata),
-    .reg_do(simplespimaster_reg_do),
-    .reg_wait(simplespimaster_reg_wait)
-);
+// // spi sd card @ 0x0200_000c
+// assign sd_dat1 = 1;
+// assign sd_dat2 = 1;
+// assign sd_dat3 = 0;
+// simplespimaster simplespi (
+//     .clk(clk), .resetn(resetn),
+//     .sck(sd_clk), .mosi(sd_cmd), .miso(sd_dat0),
+//     .reg_byte_we(simplespimaster_reg_byte_sel ? mem_wstrb[0] : 1'b0),
+//     .reg_word_we(simplespimaster_reg_word_sel ? mem_wstrb[0] : 1'b0),
+//     .reg_di(mem_wdata),
+//     .reg_do(simplespimaster_reg_do),
+//     .reg_wait(simplespimaster_reg_wait)
+// );
 
-// ROM loading I/O
-reg [1:0] rom_cnt;
-reg [31:0] rom_do_buf;
-assign rom_do = rom_do_buf[7:0];
-always @(posedge clk) begin
-    rom_do_valid <= 0;
-    // data register
-    if (romload_reg_data_sel && mem_wstrb) begin
-        rom_do_buf <= mem_wdata;
-        rom_cnt <= 2'd3;
-        rom_do_valid <= 1;
-    end
-    if (rom_cnt != 2'd0) begin      // output remaining rom_do
-        rom_do_buf[23:0] <= rom_do_buf[31:8];
-        rom_cnt <= rom_cnt - 2'd1;
-        rom_do_valid <= 1;
-    end
-end
-always @(posedge clk) begin
-    if (romload_reg_ctrl_sel && mem_wstrb) begin
-        // control register
-        if (mem_wdata[7:0] == 8'd1)
-            rom_loading <= 1;
-        if (mem_wdata[7:0] == 8'd0)
-            rom_loading <= 0;
-    end    
-end
+// // ROM loading I/O
+// reg [1:0] rom_cnt;
+// reg [31:0] rom_do_buf;
+// assign rom_do = rom_do_buf[7:0];
+// always @(posedge clk) begin
+//     rom_do_valid <= 0;
+//     // data register
+//     if (romload_reg_data_sel && mem_wstrb) begin
+//         rom_do_buf <= mem_wdata;
+//         rom_cnt <= 2'd3;
+//         rom_do_valid <= 1;
+//     end
+//     if (rom_cnt != 2'd0) begin      // output remaining rom_do
+//         rom_do_buf[23:0] <= rom_do_buf[31:8];
+//         rom_cnt <= rom_cnt - 2'd1;
+//         rom_do_valid <= 1;
+//     end
+// end
+// always @(posedge clk) begin
+//     if (romload_reg_ctrl_sel && mem_wstrb) begin
+//         // control register
+//         if (mem_wdata[7:0] == 8'd1)
+//             rom_loading <= 1;
+//         if (mem_wdata[7:0] == 8'd0)
+//             rom_loading <= 0;
+//     end    
+// end
 
 // RV memory access
 assign rv_addr = flash_loading ? flash_addr : mem_addr;
