@@ -8,8 +8,7 @@
 // $20_0000 - $37_ffff: CHR ROM 1.5MB
 // $38_0000 - $38_07ff: Internal RAM (2KB), and 126KB unused
 // $3c_0000 - $3d_ffff: PRG RAM 128KB
-//
-// $40_0000 RV RAM
+// $40_0000 - $7f_ffff: RV RAM (TBD)
 
 import configPackage::*;
 
