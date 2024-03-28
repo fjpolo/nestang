@@ -25,6 +25,14 @@
         <File path="src/hdmi2/tmds_channel.sv" type="file.verilog" enable="1"/>
         <File path="src/hw_sound.v" type="file.verilog" enable="1"/>
         <File path="src/hw_uart.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/gowin_dpb_menu.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/iosys.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/picorv32.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/simplespimaster.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/simpleuart.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/spi_master.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/spiflash.v" type="file.verilog" enable="1"/>
+        <File path="src/iosys/textdisp.v" type="file.verilog" enable="1"/>
         <File path="src/mapLoopy.v" type="file.verilog" enable="1"/>
         <File path="src/memory_controller.v" type="file.verilog" enable="1"/>
         <File path="src/mmu.v" type="file.verilog" enable="1"/>
@@ -44,5 +52,7 @@
         <File path="src/tang_nano_20k/nestang.sdc" type="file.sdc" enable="1"/>
         <File path="src/tang_primer_25k/nestang.sdc" type="file.sdc" enable="0"/>
         <File path="src/nes.gao" type="file.gao" enable="0"/>
+        <File path="src/iosys/gowin_dpb_menu.ipc" type="file.other" enable="1"/>
+        <File path="src/iosys/gowin_dpb_menu.mod" type="file.other" enable="1"/>
     </FileList>
 </Project>
