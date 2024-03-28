@@ -113,6 +113,8 @@ spiflash #(.ADDR(24'h500000), .LEN(FIRMWARE_SIZE)) flash (
     .busy()
 );
 
+assign led[0] = flash_loaded;
+
 always @(posedge clk) begin
     if (~resetn) begin
         flash_loaded <= 0;

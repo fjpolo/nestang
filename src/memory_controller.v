@@ -3,11 +3,13 @@
 // nand2mario, 2022.10
 // 
 // Memory layout:
-// Total address space 4MB
+// Total address space 5MB
 // $00_0000 - $1f_ffff: PRG ROM 2MB
 // $20_0000 - $37_ffff: CHR ROM 1.5MB
 // $38_0000 - $38_07ff: Internal RAM (2KB), and 126KB unused
 // $3c_0000 - $3d_ffff: PRG RAM 128KB
+//
+// $40_0000 RV RAM
 
 import configPackage::*;
 
@@ -154,7 +156,7 @@ end
 `else
 
 // memory model for verilator 
-reg [7:0] SIM_MEM [0:1024*1024*4-1];
+reg [7:0] SIM_MEM [0:1024*1024*5-1];
 reg [7:0] dout_a_next;
 reg [7:0] dout_b_next;
 reg [7:0] dout_rv_next;
