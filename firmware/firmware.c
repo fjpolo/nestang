@@ -691,6 +691,16 @@ uint16_t gen_crc16(const uint8_t *data, uint16_t size) {
 int main() {
 	overlay(1);
 
+	while(1){
+		int i;
+		for(i=0;i<27000000;++i){
+			reg_led = 1;
+		}
+		for(i=0;i<27000000;++i){
+			reg_led = 0;
+		}
+	}
+
 	// initialize UART
 	reg_uart_clkdiv = 187; // 21505400 / 115200;
 

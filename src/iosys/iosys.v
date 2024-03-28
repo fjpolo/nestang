@@ -79,7 +79,10 @@ module iosys #(parameter FREQ=21_477_000)
     input  sd_dat0,                 // MISO
     output sd_dat1,                 // 1
     output sd_dat2,                 // 1
-    output sd_dat3                  // 0 for SPI mode
+    output sd_dat3,                 // 0 for SPI mode
+
+    // Debug: LED
+    output [1:0] led
 );
 
 /* verilator lint_off PINMISSING */
@@ -180,8 +183,11 @@ wire        joystick_reg_sel = mem_valid && (mem_addr == 32'h 0200_0040);
 
 wire        time_reg_sel = mem_valid && (mem_addr == 32'h0200_0050);        // milli-seconds since start-up (overflows in 49 days)
 
+wire        led_reg = mem_valid && (mem_addr == 32'h 0200_0060);
+
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
             romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel ||
+            led_reg ||
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait);
 
@@ -192,6 +198,10 @@ assign mem_rdata = ram_ready ? ram_rdata :
         time_reg_sel ? time_reg :
         (simplespimaster_reg_byte_sel | simplespimaster_reg_word_sel) ? simplespimaster_reg_do : 
         32'h 0000_0000;
+
+// assign led[0] = joy1[0];
+// assign led[1] = joy1[1];
+assign led = led;
 
 picorv32 #(
     // .ENABLE_MUL(1),
@@ -318,6 +328,7 @@ always @(posedge clk) begin
     end
 end
 
+// Debug
 // assign led = ~{2'b0, (^ total_refresh[7:0]), s0, flash_cnt[12]};     // flash while loading
 
 endmodule

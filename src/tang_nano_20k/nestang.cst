@@ -77,3 +77,17 @@ IO_LOC "s1" 88;
 IO_PORT "s1" PULL_MODE=NONE BANK_VCCIO=3.3;
 IO_LOC "sys_clk" 4;
 IO_PORT "sys_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// SPI flash
+IO_LOC "flash_spi_cs_n" 60;
+IO_PORT "flash_spi_cs_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "flash_spi_wp_n" 57;
+IO_PORT "flash_spi_wp_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "flash_spi_hold_n" 63;
+IO_PORT "flash_spi_hold_n" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "flash_spi_miso" 62;   // MSPI_DO
+IO_PORT "flash_spi_miso" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "flash_spi_mosi" 61;   // MSPI_DI
+IO_PORT "flash_spi_mosi" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "flash_spi_clk" 59;
+IO_PORT "flash_spi_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;

@@ -39,7 +39,21 @@ module MemoryController(
 	output SDRAM_nCAS, // columns address select
 	output SDRAM_CLK,
 	output SDRAM_CKE,
-    output [SDRAM_DATA_WIDTH/8-1:0] SDRAM_DQM
+    output [SDRAM_DATA_WIDTH/8-1:0] SDRAM_DQM,
+
+    // RISC-V softcore
+    input      [22:1] rv_addr,      // 8MB RV memory space
+    input      [15:0] rv_din,       // 16-bit accesses
+    input      [1:0]  rv_ds,
+    output reg [15:0] rv_dout,
+    input             rv_req,
+    output reg        rv_req_ack,   // ready for new requests. read data available on NEXT mclk
+    input             rv_we
+
+    // output            refreshing,
+    // output reg [23:0] total_refresh,
+
+    // output reg        busy
 );
 
 reg [22:0] MemAddr;
@@ -47,14 +61,15 @@ reg MemRD, MemWR, MemRefresh, MemInitializing;
 reg [7:0] MemDin;
 wire [7:0] MemDout;
 reg [2:0] cycles;
-reg r_read_a, r_read_b;
-reg [7:0] da, db;
+reg r_read_a, r_read_b, r_read_rv;
+reg [7:0] da, db, drv;
 wire MemBusy, MemDataReady;
 
 `ifndef VERILATOR
 
 assign dout_a = (cycles == 3'd4 && r_read_a) ? MemDout : da;
 assign dout_b = (cycles == 3'd4 && r_read_b) ? MemDout : db;
+assign rv_dout = (cycles == 3'd4 && r_read_rv) ? MemDout : drv;
 
 // SDRAM driver
 sdram #(
@@ -78,7 +93,7 @@ always @(posedge clk) begin
     
     // Initiate read or write
     if (!busy) begin
-        if (read_a || read_b || write || refresh) begin
+        if (read_a || read_b || write || refresh || rv_req) begin
             MemAddr <= {1'b0, addr};
             MemWR <= write;
             MemRD <= (read_a || read_b);
@@ -88,9 +103,19 @@ always @(posedge clk) begin
             cycles <= 3'd1;
             r_read_a <= read_a;
             r_read_b <= read_b;
-
             if (write) total_written <= total_written + 1;
-        end 
+        end else if(rv_req) begin  // RISC-V
+            MemAddr <= rv_addr;
+            MemWR <= rv_we;
+            MemRD <= rv_req;
+            MemRefresh <= refresh;
+            busy <= 1'b1;
+            MemDin <= rv_din;
+            cycles <= 3'd1;
+            r_read_rv <= rv_req;
+            rv_req_ack <= 1'b1;
+            if (write) total_written <= total_written + 1;
+        end
     end else if (MemInitializing) begin
         if (~MemBusy) begin
             // initialization is done
@@ -101,15 +126,19 @@ always @(posedge clk) begin
         // Wait for operation to finish and latch incoming data on read.
         if (cycles == 3'd4) begin
             busy <= 0;
-            if (r_read_a || r_read_b) begin
+            if (r_read_a || r_read_b || r_read_rv) begin
                 if (~MemDataReady)      // assert data ready
                     fail <= 1'b1;
                 if (r_read_a) 
                     da <= MemDout;
                 if (r_read_b)
                     db <= MemDout;
+                if(rv_req)
+                    drv <= MemDout;
                 r_read_a <= 1'b0;
                 r_read_b <= 1'b0;
+                r_read_rv <= 1'b0;
+                rv_req_ack <= 1'b0;
             end
         end
     end
@@ -128,8 +157,10 @@ end
 reg [7:0] SIM_MEM [0:1024*1024*4-1];
 reg [7:0] dout_a_next;
 reg [7:0] dout_b_next;
+reg [7:0] dout_rv_next;
 assign dout_a = dout_a_next;
 assign dout_b = dout_b_next;
+assign dout_rv = dout_rv_next;
 
 // in verilator model, our memory delay is 1-cycle
 // busy is always 0
@@ -138,6 +169,7 @@ always @(posedge clk) begin
 
     if (read_a) dout_a_next <= SIM_MEM[addr];
     if (read_b) dout_b_next <= SIM_MEM[addr];
+    if (rv_req) dout_rv_next <= SIM_MEM[addr];
     if (write) SIM_MEM[addr] <= din;
 
     if (~resetn) begin

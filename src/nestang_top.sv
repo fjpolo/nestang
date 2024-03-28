@@ -64,20 +64,26 @@ module nestang_top (
 
 
     // NES gamepad
-`ifdef N20K
     output NES_gamepad_data_clock,
     output NES_gampepad_data_latch,
     input NES_gampead_serial_data,
     output NES_gamepad_data_clock2,
     output NES_gampepad_data_latch2,
     input NES_gampead_serial_data2,
-`endif
 
     // HDMI TX
     output       tmds_clk_n,
     output       tmds_clk_p,
     output [2:0] tmds_d_n,
-    output [2:0] tmds_d_p
+    output [2:0] tmds_d_p,
+
+    // SPI flash
+    output flash_spi_cs_n,          // chip select
+    input flash_spi_miso,           // master in slave out
+    output flash_spi_mosi,          // mster out slave in
+    output flash_spi_clk,           // spi clock
+    output flash_spi_wp_n,          // write protect
+    output flash_spi_hold_n         // hold operations
 );
 
 
@@ -212,13 +218,137 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
                          | usb_btn2
                          | NES_gamepad_button_state2;
 
+
+  // IOSys for menu, rom loading...
+iosys iosys (
+    .clk(clk), .hclk(), /*.clkref(DOTCLK),*/ .resetn(sys_resetn),
+
+    .overlay(), .overlay_x(), .overlay_y(),
+    .overlay_color(),
+    .joy1(nes_btn), .joy2(nes_btn2),
+
+    .rom_loading(), .rom_do(), .rom_do_valid(), 
+    .ram_busy(ram_busy),
+
+    .rv_valid(rv_valid), .rv_ready(rv_ready), .rv_addr(rv_addr),
+    .rv_wdata(rv_wdata), .rv_wstrb(rv_wstrb), .rv_rdata(rv_rdata),
+
+    .flash_spi_cs_n(flash_spi_cs_n), .flash_spi_miso(flash_spi_miso),
+    .flash_spi_mosi(flash_spi_mosi), .flash_spi_clk(flash_spi_clk),
+    .flash_spi_wp_n(flash_spi_wp_n), .flash_spi_hold_n(flash_spi_hold_n),
+
+    .uart_tx(), .uart_rx(),
+
+    .sd_clk(), .sd_cmd(), .sd_dat0(), .sd_dat1(),
+    .sd_dat2(), .sd_dat3(),
+
+    .led(led[1:0])
+);
+
+// RISC-V
+localparam RV_IDLE_REQ0 = 3'd0;
+localparam RV_WAIT0_REQ1 = 3'd1;
+localparam RV_DATA0 = 3'd2;
+localparam RV_WAIT1 = 3'd3;
+localparam RV_DATA1 = 3'd4;
+reg [2:0]   rvst;
+
+wire        rv_valid;
+reg         rv_ready;
+wire [22:0] rv_addr;
+wire [31:0] rv_wdata;
+wire [3:0]  rv_wstrb;
+reg  [15:0] rv_dout0;
+wire [31:0] rv_rdata = {rv_dout, rv_dout0};
+reg         rv_valid_r;
+reg         rv_word;           // which word
+reg         rv_req;
+wire        rv_req_ack;
+wire [15:0] rv_dout;
+reg [1:0]   rv_ds;
+reg         rv_new_req;
+
+always @(posedge clk) begin            // RV
+    if (~sys_resetn) begin
+        rvst <= RV_IDLE_REQ0;
+        rv_ready <= 0;
+    end else begin
+        reg write = rv_wstrb != 0;
+        reg rv_new_req_t = rv_valid & ~rv_valid_r;
+        if (rv_new_req_t) rv_new_req <= 1;
+
+        rv_ready <= 0;
+        rv_valid_r <= rv_valid;
+
+        case (rvst)
+        RV_IDLE_REQ0: if (rv_new_req || rv_new_req_t) begin
+            rv_new_req <= 0;
+            rv_req <= ~rv_req;
+            if (write && rv_wstrb[1:0] == 2'b0) begin
+                // shortcut for only writing the upper word
+                rv_word <= 1;
+                rv_ds <= rv_wstrb[3:2];
+                rvst <= RV_WAIT1;
+            end else begin
+                rv_word <= 0;
+                if (write)
+                    rv_ds <= rv_wstrb[1:0];
+                else
+                    rv_ds <= 2'b11;
+                rvst <= RV_WAIT0_REQ1;
+            end
+        end
+
+        RV_WAIT0_REQ1: begin
+            if (rv_req == rv_req_ack) begin
+                rv_req <= ~rv_req;      // request 1
+                rv_word <= 1;
+                if (write) begin
+                    rvst <= RV_WAIT1;
+                    if (rv_wstrb[3:2] == 2'b0) begin
+                        // shortcut for only writing the lower word
+                        rv_req <= rv_req;
+                        rv_ready <= 1;
+                        rvst <= RV_IDLE_REQ0;
+                    end
+                    rv_ds <= rv_wstrb[3:2];
+                end else begin
+                    rv_ds <= 2'b11;
+                    rvst <= RV_DATA0;
+                end
+            end
+        end
+
+        RV_DATA0: begin
+            rv_dout0 <= rv_dout;
+            rvst <= RV_WAIT1;
+        end
+            
+        RV_WAIT1: 
+            if (rv_req == rv_req_ack) begin
+                if (write)  begin
+                    rv_ready <= 1;
+                    rvst <= RV_IDLE_REQ0;
+                end else
+                    rvst <= RV_DATA1;
+            end
+
+        RV_DATA1: begin
+            rv_ready <= 1;
+            rvst <= RV_IDLE_REQ0;
+        end
+
+        default:;
+        endcase
+    end
+end
+
   // NES gamepad
   wire [7:0]NES_gamepad_button_state;
   wire NES_gamepad_data_available;
   wire [7:0]NES_gamepad_button_state2;
   wire NES_gamepad_data_available2;
 
-`ifdef N20K
   NESGamepad nes_gamepad(
 		.i_clk(clk),
         .i_rst(sys_resetn),
@@ -238,7 +368,6 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 		.o_button_state(NES_gamepad_button_state2),
         .o_data_available(NES_gamepad_data_available2)
                         );
-`endif
 
   // Joypad handling
   always @(posedge clk) begin
@@ -258,6 +387,13 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire loader_write;
   wire [31:0] mapper_flags;
   wire loader_done, loader_fail, loader_refresh;
+
+  // Parses ROM data and store them for MemoryController to access
+  GameLoader loader(
+        .clk(clk), .reset(loader_reset), .indata(loader_input), .indata_clk(loader_clk),
+        .mem_addr(loader_addr), .mem_data(loader_write_data), .mem_write(loader_write),
+        .mem_refresh(loader_refresh), .mapper_flags(mapper_flags), 
+        .done(loader_done), .error(loader_fail), .loader_state(), .loader_bytes_left());
 
   // The NES machine
   // nes_ce  / 0 \___/ 1 \___/ 2 \___/ 3 \___/ 4 \___/ 0 \___
@@ -355,8 +491,14 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
 
         .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), .SDRAM_nCS(O_sdram_cs_n),
         .SDRAM_nWE(O_sdram_wen_n), .SDRAM_nRAS(O_sdram_ras_n), .SDRAM_nCAS(O_sdram_cas_n), 
-        .SDRAM_CLK(O_sdram_clk), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm)
+        .SDRAM_CLK(O_sdram_clk), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm),
+
+        // IOSys risc-v softcore
+        .rv_addr({rv_addr[22:2], rv_word}), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
+        .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
 );
+
+
 /*verilator tracing_on*/
 
 `ifndef VERILATOR
@@ -373,6 +515,21 @@ nes2hdmi u_hdmi (
     .clk_pixel(clk_p), .clk_5x_pixel(clk_p5), .locked(pll_lock),
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
+);
+
+reg [7:0] sd_debug_reg;
+wire [7:0] sd_debug_out;
+
+SDLoader #(.FREQ(FREQ)) sd_loader (
+    .clk(clk), .resetn(sys_resetn),
+    .overlay(menu_overlay), .color(menu_color), .scanline(menu_scanline),
+    .cycle(menu_cycle),
+    .nes_btn(loader_btn | nes_btn | loader_btn_2 | nes_btn2), 
+    .dout(sd_dout), .dout_valid(sd_dout_valid),
+    .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
+    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3),
+
+    .debug_reg(sd_debug_reg), .debug_out(sd_debug_out)
 );
 
 // Dualshock controller
@@ -652,6 +809,6 @@ end
 
 reg [23:0] led_cnt;
 always @(posedge clk) led_cnt <= led_cnt + 1;
-assign led = {led_cnt[23], led_cnt[22]};
+// assign led = {led_cnt[23], led_cnt[22]};
 
 endmodule
