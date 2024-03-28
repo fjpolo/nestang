@@ -259,13 +259,6 @@ UartDemux #(.FREQ(FREQ), .BAUDRATE(BAUDRATE)) uart_demux(
   wire [31:0] mapper_flags;
   wire loader_done, loader_fail, loader_refresh;
 
-  // Parses ROM data and store them for MemoryController to access
-  GameLoader loader(
-        .clk(clk), .reset(loader_reset), .indata(loader_input), .indata_clk(loader_clk),
-        .mem_addr(loader_addr), .mem_data(loader_write_data), .mem_write(loader_write),
-        .mem_refresh(loader_refresh), .mapper_flags(mapper_flags), 
-        .done(loader_done), .error(loader_fail), .loader_state(), .loader_bytes_left());
-
   // The NES machine
   // nes_ce  / 0 \___/ 1 \___/ 2 \___/ 3 \___/ 4 \___/ 0 \___
   // MemCtrl |mem_cmd|ACTIVE | RD/WR |       |  Dout |run_mem|
@@ -380,21 +373,6 @@ nes2hdmi u_hdmi (
     .clk_pixel(clk_p), .clk_5x_pixel(clk_p5), .locked(pll_lock),
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
-);
-
-reg [7:0] sd_debug_reg;
-wire [7:0] sd_debug_out;
-
-SDLoader #(.FREQ(FREQ)) sd_loader (
-    .clk(clk), .resetn(sys_resetn),
-    .overlay(menu_overlay), .color(menu_color), .scanline(menu_scanline),
-    .cycle(menu_cycle),
-    .nes_btn(loader_btn | nes_btn | loader_btn_2 | nes_btn2), 
-    .dout(sd_dout), .dout_valid(sd_dout_valid),
-    .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
-    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3),
-
-    .debug_reg(sd_debug_reg), .debug_out(sd_debug_out)
 );
 
 // Dualshock controller
