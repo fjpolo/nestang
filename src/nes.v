@@ -497,9 +497,10 @@ cart_top multi_mapper (
 	.diskside          (diskside)
 );
 
+/* Cheats */
 wire genie_ovr;
 wire [7:0] genie_data;
-/*
+
 CODES codes (
 	.clk        (clk),
 	.reset      (gg_reset),
@@ -511,7 +512,6 @@ CODES codes (
 	.genie_ovr  (genie_ovr),
 	.genie_data (genie_data)
 );
-*/
 
 /**********************************************************/
 /*************       Bus Arbitration        ***************/

@@ -10,6 +10,7 @@
         <File path="src/apu.v" type="file.verilog" enable="1"/>
         <File path="src/autofire.v" type="file.verilog" enable="1"/>
         <File path="src/cart.sv" type="file.verilog" enable="1"/>
+        <File path="src/cheatcodes.sv" type="file.verilog" enable="1"/>
         <File path="src/compat.v" type="file.verilog" enable="1"/>
         <File path="src/dpram.v" type="file.verilog" enable="1"/>
         <File path="src/dualshock_controller.v" type="file.verilog" enable="1"/>
