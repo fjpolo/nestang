@@ -2,9 +2,14 @@
 // nand2mario, 2024.1
 //
 // Needs xpack-gcc risc-v gcc: https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/
-// Use build.bat to build. Then burn firmware.bin to SPI flash address 0x500000 with Gowin programmer.
+// Use build.bat/build.sh to build. Then burn firmware.bin to SPI flash address 0x500000 with Gowin programmer.
 
 #include <stdbool.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+
 #include "picorv32.h"
 #include "fatfs/ff.h"
 #include "firmware.h"
@@ -30,6 +35,7 @@ bool snes_backup_valid;		// whether it is okay to save
 char snes_backup_name[256];
 uint16_t snes_bsram_crc16;
 uint32_t snes_backup_time;
+static bool cheats_enabled = true;
 
 // return 0: success, 1: no option file found, 2: option file corrupt
 int load_option()  {
@@ -324,7 +330,7 @@ int menu_loadrom(int *choice) {
 				}
 			}
 		} else {
-			status("Error opening director");
+			status("Error opening directory");
 			printf(" %d", r);
 			return -1;
 		}
@@ -435,8 +441,8 @@ int parse_snes_header(FIL *fp, int pos, int file_size, int typ, uint8_t *hdr, in
 	return 1;
 }
 
-char load_fname[1024];
-char load_buf[1024];
+static char load_fname[1024];
+static char load_buf[1024];
 
 // actually load a rom file. if bsram backup is needed, also loads the backup.
 // return 0 if successful
@@ -543,8 +549,144 @@ loadsnes_end:
 	return r;
 }
 
-// load a NES rom file.
-// return 0 if successful
+/*
+ * Cheats
+*/
+static uint8_t nes_cheats[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT];
+static char load_fname_cheat[1024];
+static char load_buf_cheat[CHEATS_TOTAL_CHARS];
+
+uint8_t ascii_to_uint8(char MSB, char LSB){
+	return ((MSB - '0') << 4) | (LSB - '0');
+}
+
+// Parse cheats txt file
+//
+int parse_txt_to_int(
+	FIL* i_file,
+	void* o_cheats
+){
+
+	// Format:
+	//			- 32 bit words
+	//			- Little Endian format
+	//
+	// |         4 bytes              |      byte    |      byte   |      byte   |      byte    |    4 bytes    |     4 bytes    |
+	// |------------------------------|--------------|-------------|-------------|--------------|---------------|----------------|  
+	// | Flag - Compare value enabled | Address LLSB | Address LSB | Address MSB | Address MMSB | Compare value |  Replace value | 
+	//
+	// Example:
+	//
+	//	01 00 00 00 A0 1C FF 00 B5 00 00 00 FF 00 00 00
+	//
+	// The first four bytes are little-endian 0x00000001 for "compare enabled", the second four are little-endian address, third set are compare value, and fourth is replace value. Note that not all codes use a compare value.
+	//
+
+	// o_cheats Format
+	//
+	// uint8_t o_cheats[32 * 16] = {
+	//								
+	//									compare_enable_LLSB_0, compare_enable_LSB_0, compare_enable_MSB_0, compare_enable_MMSB_0,
+	//									address_LLSB_0, address_LSB_0, address_MSB_0, address_MMSB_0,
+	//									compare_value_LLSB_0, compare_value_LSB_0, compare_value_MSB_0, compare_value_MMSB_0,
+	//									replace_LLSB_0, replace_LSB_0, replace_MSB_0, replace_MMSB_0,
+	//								,
+	//								...
+	//								
+	//									compare_enable_LLSB_15, compare_enable_LSB_15, compare_enable_MSB_15, compare_enable_MMSB_15,
+	//									address_LLSB, address_LSB_15, address_MSB_15, address_MMSB_15,
+	//									compare_value_LLSB_15, compare_value_LSB_15, compare_value_MSB_15, compare_value_MMSB_15,
+	//									replace_LLSB_15, replace_LSB_15, replace_MSB_15, replace_MMSB_15
+	//								
+	// 							  }
+	char * buffer = 0;
+	int length;
+	int r, br;
+	uint8_t* o_cheats_ui = (uint8_t *)o_cheats;	
+	
+	if(!i_file){
+		DEBUG("[Cheats] Cannot open file\n");
+		return 1;
+	}
+	else{
+		// Start reading file
+		f_lseek (i_file, SEEK_END);
+		length = f_tell (i_file);
+		if(!length){
+			DEBUG("[Cheats] Empty file\n");
+			return 1;
+		}
+		else{
+			f_lseek (i_file, SEEK_SET);
+  			if(!buffer){
+				DEBUG("[Cheats] Empty buffer\n");
+				return 1;
+			}
+			else{
+				r = f_read(i_file, load_buf_cheat, length, &br);
+			}
+		}
+	}
+
+	// Parse str to binary
+	if(buffer){
+		for(int i;i<length;i=i+3){
+			o_cheats_ui[i%3] = ascii_to_uint8(load_buf_cheat[i], load_buf_cheat[i+1]);
+		}
+	}
+}
+
+
+// Load a cheat file if available
+// Return 0 if successful
+int load_cheats(void){
+	bool cheat_txt_loaded = false;	
+	memcpy(load_fname_cheat, load_fname, 1024);
+	for(int i=0; i<(1024-3); ++i){
+		if(
+			load_fname_cheat[i] == '.' && 
+			load_fname_cheat[i+1] == 'n' && 
+			load_fname_cheat[i+2] == 'e' && 
+			load_fname_cheat[i+3] == 's')
+			{
+				load_fname_cheat[i+1] = 't';
+				load_fname_cheat[i+2] = 'x';
+				load_fname_cheat[i+3] = 't';
+				cheat_txt_loaded = true;
+		}
+	}
+	if(!cheat_txt_loaded){
+		DEBUG("[Cheats] TXT not found\n");
+		return 1;
+	}
+
+	// Check extension: .txt
+	char *p = strcasestr(load_fname_cheat, ".txt");
+	if (p == NULL) {
+		DEBUG("[Cheats] Only .txt supported\n");
+		return 1;
+	}
+
+	FIL f;
+	int r = f_open(&f, load_fname_cheat, FA_READ);
+	if (r) {
+		DEBUG("[Cheats] Cannot open file\n");
+		return 1;
+	}
+	else{
+		// Parse from ASCII to an array
+		int parse_ret = parse_txt_to_int(&f, (void *)nes_cheats);
+		if(parse_ret){
+			DEBUG("[Cheats] Cannot parse TXT\n");
+			return 1;
+		}
+	
+		f_close(&f);
+	}
+}
+
+// Load a NES rom file.
+// Return 0 if successful
 int loadnes(int rom) {
 	FIL f;
 	strncpy(load_fname, pwd, 1024);
@@ -553,14 +695,14 @@ int loadnes(int rom) {
 
 	DEBUG("loadnes start\n");
 
-	// check extension .sfc or .smc
+	// Check extension: .sfc or .smc
 	char *p = strcasestr(file_names[rom], ".nes");
 	if (p == NULL) {
 		status("Only .nes supported");
 		goto loadnes_end;
 	}
 
-	// initiaze sd again to be sure
+	// Initialize SD again to be sure
 	if (sd_init() != 0) return 99;
 
 	int r = f_open(&f, load_fname, FA_READ);
@@ -571,11 +713,11 @@ int loadnes(int rom) {
 	int off = 0, br, total = 0;
 	int size = file_sizes[rom];
 
-	// load actual ROM
-	snes_ctrl(1);		// enable game loading, this resets SNES
+	// Load actual ROM
+	snes_ctrl(1);		// Enable game Loading, this resets NES
 	snes_running = false;
 
-	// Send rom content to snes
+	// Send ROM content to NES
 	if ((r = f_lseek(&f, off)) != FR_OK) {
 		status("Seek failure");
 		goto loadnes_snes_end;
@@ -585,23 +727,30 @@ int loadnes(int rom) {
 			break;
 		for (int i = 0; i < br; i += 4) {
 			uint32_t *w = (uint32_t *)(load_buf + i);
-			snes_data(*w);				// send actual ROM data
+			snes_data(*w);				// Send actual ROM data
 		}
 		total += br;
-		if ((total & 0xfff) == 0) {	// display progress every 4KB
+		if ((total & 0xfff) == 0) {	// Display progress every 4KB
 			status("");
 			printf("%d/%dK", total >> 10, size >> 10);
 		}
 	} while (br == 1024);
 
 	DEBUG("loadnes: %d bytes\n", total);
+	if(cheats_enabled){
+		int cheats_available = load_cheats();
+		if(cheats_available)
+			DEBUG("Cheats available");
+		else
+			DEBUG("Cheats unavailable");
+	}
 	status("Success");
 	snes_running = true;
 
-	overlay(0);		// turn off OSD
+	overlay(0);		// Turn off OSD
 
 loadnes_snes_end:
-	snes_ctrl(0);	// turn off game loading, this starts the core
+	snes_ctrl(0);	// Turn off game loading, this starts the core
 loadnes_close_file:
 	f_close(&f);
 loadnes_end:
@@ -783,10 +932,10 @@ int main() {
 	}
 
 	int r = load_option();
-	if (r == 2) {	// file corrupt
+	if (r == GAME_LOAD_STATE_FILE_CORRUPT) {	// file corrupt
 		clear();
 		message("Option file corrupt and is not loaded",1);
-	} else if (r == 1) {	// file not exist
+	} else if (r == GAME_LOAD_STATE_FILE_NOT_EXIST) {	// file not exist
 		// clear();
 		// message("Cannot open option file",1);
 	}
@@ -804,27 +953,43 @@ int main() {
 		cursor(2, 12);
 		print("1) Load ROM from SD card\n");
 		cursor(2, 13);
-		print("2) Options\n");
-		cursor(2, 15);
+		cheats_enabled ? print("2) Cheats enabled\n") : print("2) Cheats disabled\n");
+		cursor(2, 14);
+		print("3) Options\n");
+		cursor(2, 16);
 		print("Version: ");
 		print(__DATE__);
 
 		delay(300);
 
-		int choice = 0;
+		int choice = MENU_CHOICES_LOAD_ROM_FROM_SDCARD;
 		for (;;) {
-			int r = joy_choice(12, 2, &choice, OSD_KEY_CODE);
+			int r = joy_choice(12, (MENU_CHOICES_END), &choice, OSD_KEY_CODE);
 			if (r == 1) break;
 		}
 
-		if (choice == 0) {
-			int rom;
-			delay(300);
-			menu_loadrom(&rom);
-		} else if (choice == 1) {
-			delay(300);
-			menu_options();
-			continue;
+		switch(choice){
+			case MENU_CHOICES_LOAD_ROM_FROM_SDCARD:
+				int rom;
+				delay(300);
+				menu_loadrom(&rom);
+			break;
+
+			case MENU_CHOICES_CHEATS_ENABLE:
+				if(cheats_enabled)
+					cheats_enabled = false;
+				else
+					cheats_enabled = true;
+			break;
+
+			case MENU_CHOICES_OPTIONS:
+				delay(300);
+				menu_options();
+				// continue;
+			break;
+
+			default:
+			break;
 		}
 	}
 }
