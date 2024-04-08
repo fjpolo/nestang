@@ -570,37 +570,35 @@ int parse_txt_to_int(
 ){
 
 	// Format:
-	//			- 32 bit words
+	//			- 16 bit words
 	//			- Little Endian format
 	//
-	// |         4 bytes              |      byte    |      byte   |      byte   |      byte    |    4 bytes    |     4 bytes    |
-	// |------------------------------|--------------|-------------|-------------|--------------|---------------|----------------|  
-	// | Flag - Compare value enabled | Address LLSB | Address LSB | Address MSB | Address MMSB | Compare value |  Replace value | 
+	// |         2 bytes              |      byte   |      byte   |    2 bytes    |     2 bytes    |
+	// |------------------------------|-------------|-------------|---------------|----------------|  
+	// | Flag - Compare value enabled | Address LSB | Address MSB | Compare value |  Replace value | 
 	//
 	// Example:
 	//
-	//	01 00 00 00 A0 1C FF 00 B5 00 00 00 FF 00 00 00
+	//	01 00 A0 1C B5 00 FF 00
 	//
-	// The first four bytes are little-endian 0x00000001 for "compare enabled", the second four are little-endian address, third set are compare value, and fourth is replace value. Note that not all codes use a compare value.
+	// The first four bytes are little-endian 0x0001 for "compare enabled", the second two are little-endian address, third set are compare value, and fourth is replace value. Note that not all codes use a compare value.
 	//
 
 	// o_cheats Format
 	//
 	// uint8_t o_cheats[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT] = {
-	// uint8_t o_cheats[32 * 16] = {
-	//								
-	//									compare_enable_LLSB_0, compare_enable_LSB_0, compare_enable_MSB_0, compare_enable_MMSB_0,
-	//									address_LLSB_0, address_LSB_0, address_MSB_0, address_MMSB_0,
-	//									compare_value_LLSB_0, compare_value_LSB_0, compare_value_MSB_0, compare_value_MMSB_0,
-	//									replace_LLSB_0, replace_LSB_0, replace_MSB_0, replace_MMSB_0,
+	// uint8_t o_cheats[32 * 8] = {
+	//									compare_enable_LSB_0, compare_enable_MSB_0,
+	//									address_LSB_0, address_MSB_0,
+	//									compare_value_LSB_0, compare_value_MSB_0,
+	//									replace_LSB_0, replace_MSB_0,
 	//								,
 	//								...
 	//								
-	//									compare_enable_LLSB_15, compare_enable_LSB_15, compare_enable_MSB_15, compare_enable_MMSB_15,
-	//									address_LLSB, address_LSB_15, address_MSB_15, address_MMSB_15,
-	//									compare_value_LLSB_15, compare_value_LSB_15, compare_value_MSB_15, compare_value_MMSB_15,
-	//									replace_LLSB_15, replace_LSB_15, replace_MSB_15, replace_MMSB_15
-	//								
+	//									compare_enable_LSB_15, compare_enable_MSB_15
+	//									address_LSB_15, address_MSB_15,
+	//									compare_value_LSB_15, compare_value_MSB_15,
+	//									replace_LSB_15, replace_MSB_15
 	// 							  }
 	char * buffer = 0;
 	int length;
