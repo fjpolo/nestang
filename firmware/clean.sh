@@ -1,2 +1,5 @@
+#!/bin/bash
 
-del *.bin *.elf *.list *.o *.hex fatfs\*.o
+# Remove files with specified extensions and from the fatfs directory
+
+rm -f *.bin *.elf *.list *.o *.hex fatfs/*.o
