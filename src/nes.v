@@ -509,8 +509,8 @@ CODES codes (
 	.data_in    (prg_allow ? cpumem_din : prg_dout_mapper),
 	.code       (gg_code),
 	.available  (gg_avail),
-	.genie_ovr  (genie_ovr),
-	.genie_data (genie_data)
+	.o_genie_ovr  (genie_ovr),
+	.o_genie_data (genie_data)
 );
 
 /**********************************************************/

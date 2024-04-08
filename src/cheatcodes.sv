@@ -15,13 +15,16 @@ module CODES(
 	input  [ADDR_WIDTH - 1:0] addr_in,
 	input  [DATA_WIDTH - 1:0] data_in,
 	input  [128:0] code,
-	output genie_ovr,
-	output [DATA_WIDTH - 1:0] genie_data
+	output o_genie_ovr,
+	output [DATA_WIDTH - 1:0] o_genie_data
 );
 
 parameter ADDR_WIDTH   = 16; // Not more than 32
 parameter DATA_WIDTH   = 8;  // Not more than 32
 parameter MAX_CODES    = 32;
+
+reg genie_ovr;
+reg [DATA_WIDTH - 1:0] genie_data;
 
 localparam INDEX_SIZE  = $clog2(MAX_CODES-1); // Number of bits for index, must accomodate MAX_CODES
 
@@ -76,5 +79,8 @@ always_comb begin
 		end
 	end
 end
+
+assign o_genie_ovr = genie_ovr;
+assign o_genie_data = genie_data;
 
 endmodule
