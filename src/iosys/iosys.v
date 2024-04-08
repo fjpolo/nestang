@@ -88,8 +88,8 @@ module iosys #(
     // Cheats
     output o_cheats_enabled,
     output o_cheats_available,
-    output [127:0] o_cheats_data,   // 32 16-byte cheats supportes -> 512 bytes
-    output [7:0] o_cheats_loaded,
+    output [383:0] o_cheats_data,   // Only 3 codes for now
+    output [7:0] o_cheats_loaded
 
 );
 
@@ -195,22 +195,30 @@ wire        id_reg_sel = mem_valid && (mem_addr == 32'h0200_0060);
 
 /* Cheats */
 wire        cheats_enabled = mem_valid && (mem_addr == 32'h0200_0070);
-wire        cheats_memory = mem_valid && (mem_addr == 32'h0200_0080);   // Needs CHEATS_TOTAL_BYTES [bytes] = CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT [bytes] = 256 [bytes]
-                                                                        // ⚠ Start using after 32'h0200_0180
-wire        cheats_loaded = mem_valid && (mem_addr == 32'h0200_0180);
+wire        cheats_loaded = mem_valid && (mem_addr == 32'h0200_0080);
+// 32 codes * 16 values/code * 32 bits/value = 16384 bits = 2048 bytes = 512 memory addresses -> 32'h0200_00A0 to 32'h0200_02A0
+wire        cheats_memory = mem_valid && (mem_addr >= 32'h0200_00A0 && mem_addr < (32'h0200_00A0 + 32'h30) );  // Using 3 codes: 
 
 
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
             romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel ||
-            cheats_enabled && cheats_available || 
+            cheats_enabled || cheats_loaded || cheats_memory || 
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait);
 
-assign mem_rdata = ram_ready ? ram_rdata :
+assign mem_rdata = 
+
+        ram_ready ? ram_rdata :
         joystick_reg_sel ? {4'b0, joy2, 4'b0, joy1} :
         simpleuart_reg_div_sel ? simpleuart_reg_div_do :
         simpleuart_reg_dat_sel ? simpleuart_reg_dat_do : 
         time_reg_sel ? time_reg :
+        
+        // Cheats
+        cheats_enabled ? cheats_enabled_reg :
+        cheats_loaded ? cheats_loaded_reg :
+        cheats_memory ? cheats_memory_reg :
+
         id_reg_sel ? {16'b0, CORE_ID} :
         (simplespimaster_reg_byte_sel | simplespimaster_reg_word_sel) ? simplespimaster_reg_do : 
         32'h 0000_0000;
@@ -346,10 +354,61 @@ end
 // assign led = ~{2'b0, (^ total_refresh[7:0]), s0, flash_cnt[12]};     // flash while loading
 
 // Cheats
-assign o_cheats_enabled = cheats_enabled;
-assign o_cheats_data = cheats_memory[255:0];
-assign o_cheats_loaded = cheats_loaded;
-assign o_cheats_available = (cheats_loaded > 0);
+reg [31:0] cheats_enabled_reg;
+reg [31:0] cheats_loaded_reg;
+reg [31:0] cheats_memory_reg;
+reg [31:0] cheats_memory_reg_1;
+reg [31:0] cheats_memory_reg_2;
+reg [31:0] cheats_memory_reg_3;
+
+wire cheats_code_1;
+wire cheats_code_2;
+wire cheats_code_3;
+
+assign cheats_code_1 = (mem_addr >= (32'h0200_00A0 + 32'h00) && mem_addr < (32'h0200_00A0 + 32'h10) );
+assign cheats_code_2 = (mem_addr >= (32'h0200_00A0 + 32'h10) && mem_addr < (32'h0200_00A0 + 32'h20) );
+assign cheats_code_3 = (mem_addr >= (32'h0200_00A0 + 32'h20) && mem_addr < (32'h0200_00A0 + 32'h30) );
+
+
+always @(posedge clk) begin
+    if (~resetn) begin
+        cheats_enabled_reg <= 0;
+        cheats_loaded_reg <= 0;
+        cheats_memory_reg <= 0;
+    end else begin
+        if(mem_addr == 32'h0200_0070) begin
+            cheats_enabled_reg <= mem_ready ? mem_rdata : cheats_enabled_reg;
+        end else if(mem_addr == 32'h0200_0078) begin
+            cheats_loaded_reg <= mem_ready ? mem_rdata : cheats_loaded_reg;
+        end else if((mem_addr >= 32'h0200_00A0) && mem_addr < (32'h0200_00A0 + 32'h30)) begin
+            cheats_memory_reg <= mem_ready ? mem_rdata : cheats_memory_reg;
+        end
+    end
+end
+
+always @(posedge clk) begin
+    if (~resetn) begin
+        cheats_memory_reg_1 <= 0;
+        cheats_memory_reg_2 <= 0;
+        cheats_memory_reg_3 <= 0;
+    end else begin
+        if(cheats_code_1 && mem_ready) begin
+            cheats_memory_reg_1 <= cheats_memory_reg;
+        end else if(cheats_code_2 && mem_ready) begin
+            cheats_memory_reg_2 <= cheats_memory_reg;
+        end else if(cheats_code_3 && mem_ready) begin
+            cheats_memory_reg_3 <= cheats_memory_reg;
+        end
+    end
+end
+
+assign o_cheats_enabled = cheats_enabled_reg;
+assign o_cheats_loaded = cheats_loaded_reg;
+assign o_cheats_available = (cheats_loaded_reg > 0);
+assign o_cheats_data[0] = cheats_memory_reg_1;
+assign o_cheats_data[1] = cheats_memory_reg_2;
+assign o_cheats_data[2] = cheats_memory_reg_3;
+
 
 endmodule
 

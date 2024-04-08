@@ -21,7 +21,7 @@ module CODES(
 
 parameter ADDR_WIDTH   = 16; // Not more than 32
 parameter DATA_WIDTH   = 8;  // Not more than 32
-parameter MAX_CODES    = 32;
+parameter MAX_CODES    = 3;
 
 reg genie_ovr;
 reg [DATA_WIDTH - 1:0] genie_data;

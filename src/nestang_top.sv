@@ -488,7 +488,7 @@ end
 reg NES_cheats_enabled;
 reg NES_cheats_available;
 reg [7:0]NES_cheats_loaded;
-reg [128:0] NES_cheats_data [31:0];
+reg [128:0] NES_cheats_data [2:0];
 
 // Dualshock controller
 // joy_rx[0:1] dualshock buttons: 0:(L D R U St R3 L3 Se)  1:(□ X O △ R1 L1 R2 L2)
