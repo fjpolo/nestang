@@ -7,6 +7,9 @@
 
 import configPackage::*;
 
+/* Configuration */
+`define NESGAMEPAD_ENABLED
+
 module nestang_top (
     input sys_clk,
 
@@ -68,13 +71,16 @@ module nestang_top (
 `endif
 
     // NES gamepad
+`ifdef NANO
+`ifdef NESGAMEPAD_ENABLED
     output NES_gamepad_data_clock,
     output NES_gampepad_data_latch,
     input NES_gampead_serial_data,
     output NES_gamepad_data_clock2,
     output NES_gampepad_data_latch2,
     input NES_gampead_serial_data2,
-
+`endif
+`endif
     // HDMI TX
     output       tmds_clk_n,
     output       tmds_clk_p,
@@ -156,6 +162,8 @@ wire NES_gamepad_data_available;
 wire [7:0]NES_gamepad_button_state2;
 wire NES_gamepad_data_available2;
 
+`ifdef NANO
+`ifdef NESGAMEPAD_ENABLED
 NESGamepad nes_gamepad(
     .i_clk(clk),
     .i_rst(sys_resetn),
@@ -175,6 +183,8 @@ NESGamepad nes_gamepad2(
     .o_button_state(NES_gamepad_button_state2),
     .o_data_available(NES_gamepad_data_available2)
                     );
+`endif
+`endif
 
 // Loader
 wire [21:0] loader_addr;
@@ -212,7 +222,9 @@ reg [7:0] reset_cnt = 255;      // reset for 255 cycles before start everything
 always @(posedge clk) begin
     reset_cnt <= reset_cnt == 0 ? 0 : reset_cnt - 1;
     if (reset_cnt == 0)
-//    if (reset_cnt == 0 && s1)     // for nano
+`ifdef NANO
+    if (reset_cnt == 0 && s1)     // for nano
+`endif
         sys_resetn <= ~(nes_btn[5] && nes_btn[2]);    // 8BitDo Home button = Select + Down
 end
 
