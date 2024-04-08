@@ -83,7 +83,14 @@ module iosys #(
     input  sd_dat0,                 // MISO
     output sd_dat1,                 // 1
     output sd_dat2,                 // 1
-    output sd_dat3                  // 0 for SPI mode
+    output sd_dat3,                 // 0 for SPI mode
+
+    // Cheats
+    output o_cheats_enabled,
+    output o_cheats_available,
+    output [127:0] o_cheats_data,   // 32 16-byte cheats supportes -> 512 bytes
+    output [7:0] o_cheats_loaded,
+
 );
 
 /* verilator lint_off PINMISSING */
@@ -186,8 +193,16 @@ wire        time_reg_sel = mem_valid && (mem_addr == 32'h0200_0050);        // m
 
 wire        id_reg_sel = mem_valid && (mem_addr == 32'h0200_0060);
 
+/* Cheats */
+wire        cheats_enabled = mem_valid && (mem_addr == 32'h0200_0070);
+wire        cheats_memory = mem_valid && (mem_addr == 32'h0200_0080);   // Needs CHEATS_TOTAL_BYTES [bytes] = CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT [bytes] = 256 [bytes]
+                                                                        // ⚠ Start using after 32'h0200_0180
+wire        cheats_loaded = mem_valid && (mem_addr == 32'h0200_0180);
+
+
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
             romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel ||
+            cheats_enabled && cheats_available || 
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait);
 
@@ -329,6 +344,12 @@ always @(posedge clk) begin
 end
 
 // assign led = ~{2'b0, (^ total_refresh[7:0]), s0, flash_cnt[12]};     // flash while loading
+
+// Cheats
+assign o_cheats_enabled = cheats_enabled;
+assign o_cheats_data = cheats_memory[255:0];
+assign o_cheats_loaded = cheats_loaded;
+assign o_cheats_available = (cheats_loaded > 0);
 
 endmodule
 

@@ -1,12 +1,7 @@
 #ifndef FIRMWARE_H
 #define FIRMWARE_H
 
-// Cheats
-#define CHEATS_BYTES_PER_CHEAT 8
-#define CHEATS_CHARS_PER_CHEAT (CHEATS_BYTES_PER_CHEAT * 3) // 2 char per hex value + \n or EOF
-#define CHEATS_MAX_CHEATS 32
-#define CHEATS_TOTAL_BYTES (CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT)
-#define CHEATS_TOTAL_CHARS (CHEATS_MAX_CHEATS * CHEATS_CHARS_PER_CHEAT)
+#include "picorv32.h"
 
 typedef enum{
     GAME_LOAD_STATE_OK = 0x00,

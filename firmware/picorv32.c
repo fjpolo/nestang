@@ -469,3 +469,24 @@ int atoi(const char *str) {
    }
    return sign == -1 ? -base : base;
 }
+
+
+// Cheats
+void reg_wr_cheats_enabled(bool value){
+   cheats_enabled = (uint32_t)(value);
+}
+bool reg_rd_cheats_enabled(void){
+   return (bool)cheats_enabled;
+}
+void reg_wr_cheats_loaded(int value){
+   cheats_loaded = (uint32_t)(value);
+}
+bool reg_rd_cheats_loaded(void){
+   return (bool)cheats_loaded;
+}
+void reg_wr_cheats_memory(int* buf, int len){
+   memcpy((void *)cheats_cheats_memory, (void *)buf, (size_t)len);
+}
+void reg_rd_cheats_memory(int* buf, int len){
+   memcpy((void *)buf, (void *)cheats_cheats_memory, (size_t)len);
+}

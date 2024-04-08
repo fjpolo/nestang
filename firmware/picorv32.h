@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>     // for atoi()
+#include <stdint.h>
+#include <stdbool.h>
 
 #define DEBUG(...) uart_printf(__VA_ARGS__)
 // #define DEBUG(...) do {} while(0)
@@ -18,6 +20,19 @@
 #define reg_joystick       (*(volatile uint32_t*)0x02000040)
 #define reg_time           (*(volatile uint32_t*)0x02000050)
 #define reg_core_id        (*(volatile uint32_t*)0x02000060)
+// Cheats
+#define cheats_enabled          (*(volatile uint32_t*)0x02000070)
+#define cheats_loaded           (*(volatile uint32_t*)0x02000080)
+#define cheats_cheats_memory    (*(volatile uint32_t*)0x020000A0)
+// Start using after 0x02000090 + CHEATS_TOTAL_BYTES
+
+
+// Cheats
+#define CHEATS_BYTES_PER_CHEAT 16
+#define CHEATS_CHARS_PER_CHEAT (CHEATS_BYTES_PER_CHEAT * 3) // 2 char per hex value + \n or EOF
+#define CHEATS_MAX_CHEATS 32
+#define CHEATS_TOTAL_BYTES (CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT)
+#define CHEATS_TOTAL_CHARS (CHEATS_MAX_CHEATS * CHEATS_CHARS_PER_CHEAT)
 
 // Standard library for PicoRV32 RV32I softcore
 
@@ -85,6 +100,14 @@ inline int tolower(int c) {
 inline uint32_t time_millis() {
     return reg_time;
 }
+
+// Cheats
+void reg_wr_cheats_enabled(bool value);
+bool reg_rd_cheats_enabled(void);
+void reg_wr_cheats_loaded(int value);
+bool reg_rd_cheats_loaded(void);
+void reg_wr_cheats_memory(int* buf, int len);
+void reg_rd_cheats_memory(int* buf, int len);
 
 // string functions
 // #ifndef strstr

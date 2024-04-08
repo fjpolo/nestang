@@ -35,7 +35,6 @@ bool snes_backup_valid;		// whether it is okay to save
 char snes_backup_name[256];
 uint16_t snes_bsram_crc16;
 uint32_t snes_backup_time;
-static bool cheats_enabled = true;
 
 // return 0: success, 1: no option file found, 2: option file corrupt
 int load_option()  {
@@ -573,13 +572,13 @@ int parse_txt_to_int(
 	//			- 16 bit words
 	//			- Little Endian format
 	//
-	// |         2 bytes              |      byte   |      byte   |    2 bytes    |     2 bytes    |
+	// |         byte                 |      byte   |      byte   |    byte       |     2 byte     |
 	// |------------------------------|-------------|-------------|---------------|----------------|  
 	// | Flag - Compare value enabled | Address LSB | Address MSB | Compare value |  Replace value | 
 	//
 	// Example:
 	//
-	//	01 00 A0 1C B5 00 FF 00
+	//	01 A0 1C B5 FF
 	//
 	// The first four bytes are little-endian 0x0001 for "compare enabled", the second two are little-endian address, third set are compare value, and fourth is replace value. Note that not all codes use a compare value.
 	//
@@ -745,7 +744,7 @@ int loadnes(int rom) {
 	} while (br == 1024);
 
 	DEBUG("loadnes: %d bytes\n", total);
-	if(cheats_enabled){
+	if(reg_rd_cheats_enabled()){
 		int cheats_available = load_cheats();
 		if(cheats_available)
 			DEBUG("Cheats available");
@@ -920,6 +919,8 @@ int main() {
 	CORE_ID = reg_core_id;
 	overlay(1);
 
+	reg_wr_cheats_enabled(true);
+
 	// initialize UART
 	reg_uart_clkdiv = 187; // 21505400 / 115200;
 
@@ -961,7 +962,7 @@ int main() {
 		cursor(2, 12);
 		print("1) Load ROM from SD card\n");
 		cursor(2, 13);
-		cheats_enabled ? print("2) Cheats enabled\n") : print("2) Cheats disabled\n");
+		reg_rd_cheats_enabled() ? print("2) Cheats enabled\n") : print("2) Cheats disabled\n");
 		cursor(2, 14);
 		print("3) Options\n");
 		cursor(2, 16);
@@ -984,10 +985,10 @@ int main() {
 			break;
 
 			case MENU_CHOICES_CHEATS_ENABLE:
-				if(cheats_enabled)
-					cheats_enabled = false;
+				if(reg_rd_cheats_enabled())
+					reg_wr_cheats_enabled(false);
 				else
-					cheats_enabled = true;
+					reg_wr_cheats_enabled(true);
 			break;
 
 			case MENU_CHOICES_OPTIONS:
