@@ -555,6 +555,8 @@ loadsnes_end:
 static uint8_t nes_cheats[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT];
 static char load_fname_cheat[1024];
 static char load_buf_cheat[CHEATS_TOTAL_CHARS];
+static int cheat_counter = 0;
+
 
 uint8_t ascii_to_uint8(char MSB, char LSB){
 	return ((MSB - '0') << 4) | (LSB - '0');
@@ -584,6 +586,7 @@ int parse_txt_to_int(
 
 	// o_cheats Format
 	//
+	// uint8_t o_cheats[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT] = {
 	// uint8_t o_cheats[32 * 16] = {
 	//								
 	//									compare_enable_LLSB_0, compare_enable_LSB_0, compare_enable_MSB_0, compare_enable_MMSB_0,
@@ -630,10 +633,17 @@ int parse_txt_to_int(
 
 	// Parse str to binary
 	if(buffer){
+		cheat_counter = 0;
 		for(int i;i<length;i=i+3){
 			o_cheats_ui[i%3] = ascii_to_uint8(load_buf_cheat[i], load_buf_cheat[i+1]);
+			cheat_counter++;
+		}
+		if(!cheat_counter){
+			DEBUG("[Cheats] No cheats in file\n");
+			return 1;
 		}
 	}
+	return 0;
 }
 
 
