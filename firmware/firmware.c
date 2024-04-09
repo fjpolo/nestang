@@ -606,14 +606,14 @@ int load_cheats(void){
 		}
 	}
 	if(!cheat_cwz_loaded){
-		DEBUG("[Cheats] TXT not found\n");
+		DEBUG("[Cheats] .cwz file not found\n");
 		return 1;
 	}
 
 	// Check extension: .txt
-	char *p = strcasestr(load_fname_cheat, ".txt");
+	char *p = strcasestr(load_fname_cheat, ".cwz");
 	if (p == NULL) {
-		DEBUG("[Cheats] Only .txt supported\n");
+		DEBUG("[Cheats] Only .cwz supported\n");
 		return 1;
 	}
 
@@ -627,7 +627,7 @@ int load_cheats(void){
 	// FRESULT f_read (FIL* fp, void* buff, UINT btr, UINT* br)
 	int br;
 	if ((r = f_read(&f, load_buf_cheat, 1024, &br)) != FR_OK){
-		DEBUG("[Cheats] Cannot read cheat file");
+		DEBUG("[Cheats] Cannot read cheat file\n");
 		return 1;
 	}
 	
