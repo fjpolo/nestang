@@ -69,12 +69,12 @@ module nestang_top (
 
     // NES gamepad
 `ifdef NANO
-    // output NES_gamepad_data_clock,
-    // output NES_gampepad_data_latch,
-    // input NES_gampead_serial_data,
-    // output NES_gamepad_data_clock2,
-    // output NES_gampepad_data_latch2,
-    // input NES_gampead_serial_data2,
+    output NES_gamepad_data_clock,
+    output NES_gampepad_data_latch,
+    input NES_gampead_serial_data,
+    output NES_gamepad_data_clock2,
+    output NES_gampepad_data_latch2,
+    input NES_gampead_serial_data2,
 `endif
 
     // HDMI TX
@@ -151,12 +151,6 @@ wire usb_btn_x, usb_btn_y, usb_btn_x2, usb_btn_y2;
 wire usb_conerr, usb_conerr2;
 wire auto_square, auto_triangle, auto_square2, auto_triangle2;
 wire [7:0] nes_btn, nes_btn2;
-
-// NES gamepad
-wire [7:0]NES_gamepad_button_state;
-wire NES_gamepad_data_available;
-wire [7:0]NES_gamepad_button_state2;
-wire NES_gamepad_data_available2;
 
 // Loader
 wire [21:0] loader_addr;
@@ -478,6 +472,34 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .sd_dat2(sd_dat2), .sd_dat3(sd_dat3)
 );
 
+`ifdef NANO
+// NES gamepad
+wire [7:0]NES_gamepad_button_state;
+wire NES_gamepad_data_available;
+wire [7:0]NES_gamepad_button_state2;
+wire NES_gamepad_data_available2;
+
+NESGamepad nes_gamepad(
+    .i_clk(clk),
+    .i_rst(sys_resetn),
+    .o_data_clock(NES_gamepad_data_clock),
+    .o_data_latch(NES_gampepad_data_latch),
+    .i_serial_data(NES_gampead_serial_data),
+    .o_button_state(NES_gamepad_button_state),
+    .o_data_available(NES_gamepad_data_available)
+                    );
+
+NESGamepad nes_gamepad2(
+    .i_clk(clk),
+    .i_rst(sys_resetn),
+    .o_data_clock(NES_gamepad_data_clock2),
+    .o_data_latch(NES_gampepad_data_latch2),
+    .i_serial_data(NES_gampead_serial_data2),
+    .o_button_state(NES_gamepad_button_state2),
+    .o_data_available(NES_gamepad_data_available2)
+                    );
+`endif
+
 // Dualshock controller
 // joy_rx[0:1] dualshock buttons: 0:(L D R U St R3 L3 Se)  1:(□ X O △ R1 L1 R2 L2)
 // nes_btn[0:1] NES buttons:      (R L D U START SELECT B A)
@@ -504,13 +526,13 @@ Autofire af_square2 (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx2[1][7] | usb_b
 Autofire af_triangle2 (.clk(clk), .resetn(sys_resetn), .btn(~joy_rx2[1][4] | usb_btn_x2), .out(auto_triangle2));
 
 assign nes_btn  =   {~joy_rx[0][5], ~joy_rx[0][7], ~joy_rx[0][6], ~joy_rx[0][4], 
-                    ~joy_rx[0][3], ~joy_rx[0][0], ~joy_rx[1][6] | auto_square, ~joy_rx[1][5] | auto_triangle};
+                    ~joy_rx[0][3], ~joy_rx[0][0], ~joy_rx[1][6] | auto_square, ~joy_rx[1][5] | auto_triangle}
                     // | usb_btn
-                    // | NES_gamepad_button_state;
+                    | NES_gamepad_button_state;
 assign nes_btn2 =   {~joy_rx2[0][5], ~joy_rx2[0][7], ~joy_rx2[0][6], ~joy_rx2[0][4], 
-                    ~joy_rx2[0][3], ~joy_rx2[0][0], ~joy_rx2[1][6] | auto_square2, ~joy_rx2[1][5] | auto_triangle2};
+                    ~joy_rx2[0][3], ~joy_rx2[0][0], ~joy_rx2[1][6] | auto_square2, ~joy_rx2[1][5] | auto_triangle2}
                     // | usb_btn2
-                    // | NES_gamepad_button_state2;
+                    | NES_gamepad_button_state2;
 
 // Joypad handling
 always @(posedge clk) begin
