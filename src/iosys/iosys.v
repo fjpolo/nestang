@@ -360,7 +360,7 @@ reg [31:0] cheats_enabled_reg;
 reg [31:0] cheats_loaded_reg;
 reg [31:0] cheats_memory_reg;
 reg [31:0] cheats_memory_reg_array;
-
+reg cheats_available_reg;
 
 always @(posedge clk) begin
     if (~resetn) begin
@@ -369,22 +369,20 @@ always @(posedge clk) begin
         cheats_memory_reg <= 0;
     end else begin
         if(mem_addr == 32'h0200_0070) begin
-            cheats_enabled_reg <= ram_ready ? ram_data : cheats_enabled_reg;
+            cheats_enabled_reg <= ram_ready ? ram_rdata : cheats_enabled_reg;
         end else if(mem_addr == 32'h0200_0080) begin
-            cheats_loaded_reg <= ram_ready ? ram_data : cheats_loaded_reg;
+            cheats_loaded_reg <= ram_ready ? ram_rdata : cheats_loaded_reg;
         end else if(mem_addr == 32'h0200_0090) begin
-            cheats_available_reg <= ram_ready ? ram_data : cheats_available_reg;
+            cheats_available_reg <= ram_ready ? ram_rdata : cheats_available_reg;
         end else if((mem_addr >= 32'h0200_00A0) && mem_addr < (32'h0200_00A0 + 32'h30)) begin
-            cheats_memory_reg <= ram_ready ? ram_data : cheats_memory_reg;
+            cheats_memory_reg <= ram_ready ? ram_rdata : cheats_memory_reg;
         end
     end
 end
 
 always @(posedge clk) begin
     if (~resetn) begin
-        cheats_memory_reg_1 <= 0;
-        cheats_memory_reg_2 <= 0;
-        cheats_memory_reg_3 <= 0;
+        cheats_memory_reg_array <= 0;
     end else begin
         if(mem_ready && cheats_memory) begin
             cheats_memory_reg_array[mem_addr - 32'h0200_00A0] <= cheats_memory_reg;
