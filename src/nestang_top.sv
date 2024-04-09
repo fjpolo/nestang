@@ -298,7 +298,7 @@ NES nes(
     .int_audio(int_audio),    // VRC6
     .ext_audio(ext_audio),
 
-    .apu_ce(), .gg(NES_cheats_enabled), .gg_code({clk27, NES_cheats_data[0]}), .gg_avail(NES_cheats_available), .gg_reset(), .emphasis(), .save_written()   
+    .apu_ce(), .gg(NES_cheats_enabled), .gg_code({clk27, NES_cheats_data_MISTer[0]}), .gg_avail(NES_cheats_available), .gg_reset(), .emphasis(), .save_written()   
 );
 
 // loader_write -> clock when data available
@@ -505,14 +505,27 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
 
     .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
-    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3)
+    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3),
+
+    // Cheats
+    .o_cheats_enabled(NES_cheats_enabled),
+    .o_cheats_available(NES_cheats_available_iosys),
+    .o_cheats_data(NES_cheats_data),   // Only 3 codes for now
+    .o_cheats_loaded(NES_cheats_loaded)
 );
 
 // Cheats
 reg NES_cheats_enabled;
 reg NES_cheats_available;
+reg NES_cheats_available_iosys;
 reg [7:0]NES_cheats_loaded;
-reg [128:0] NES_cheats_data [2:0];
+reg [383:0] NES_cheats_data;
+reg [128:0] NES_cheats_data_MISTer [2:0];
+
+assign NES_cheats_data_MISTer[0] = NES_cheats_data[383:256];
+assign NES_cheats_data_MISTer[1] = NES_cheats_data[255:128];
+assign NES_cheats_data_MISTer[2] = NES_cheats_data[127:0];
+
 
 // Dualshock controller
 // joy_rx[0:1] dualshock buttons: 0:(L D R U St R3 L3 Se)  1:(□ X O △ R1 L1 R2 L2)
