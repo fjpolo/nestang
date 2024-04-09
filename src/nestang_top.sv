@@ -520,7 +520,7 @@ reg NES_cheats_available;
 reg NES_cheats_available_iosys;
 reg [7:0]NES_cheats_loaded;
 reg [383:0] NES_cheats_data;
-reg [128:0] NES_cheats_data_MISTer [2:0];
+reg [127:0] NES_cheats_data_MISTer [2:0];
 
 assign NES_cheats_data_MISTer[0] = NES_cheats_data[383:256];
 assign NES_cheats_data_MISTer[1] = NES_cheats_data[255:128];
