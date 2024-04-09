@@ -553,32 +553,23 @@ loadsnes_end:
 */
 static uint8_t nes_cheats[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT];
 static char load_fname_cheat[1024];
-static char load_buf_cheat[CHEATS_TOTAL_CHARS];
+static char load_buf_cheat[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT];
 static int cheat_counter = 0;
 
-
-uint8_t ascii_to_uint8(char MSB, char LSB){
-	return ((MSB - '0') << 4) | (LSB - '0');
-}
-
-// Parse cheats txt file
-//
-int parse_txt_to_int(
-	FIL* i_file,
-	void* o_cheats
-){
-
+// Load a cheat file if available
+// Return 0 if successful
+int load_cheats(void){
 	// Format:
 	//			- 16 bit words
 	//			- Little Endian format
 	//
-	// |         byte                 |      byte   |      byte   |    byte       |     2 byte     |
-	// |------------------------------|-------------|-------------|---------------|----------------|  
-	// | Flag - Compare value enabled | Address LSB | Address MSB | Compare value |  Replace value | 
+	// |         4bytes               |      byte    |      byte   |    byte       |    byte        |     4bytes    |     4bytes     |
+	// |------------------------------|--------------|-------------|---------------|----------------|---------------|----------------|
+	// | Flag - Compare value enabled | Address LLSB | Address LSB | Address MSB   | Address MMSB   | Compare value |  Replace value | 
 	//
 	// Example:
 	//
-	//	01 A0 1C B5 FF
+	//	01 00 00 00 A0 1C 00 00 B5 00 00 00 FF 00 00 00
 	//
 	// The first four bytes are little-endian 0x0001 for "compare enabled", the second two are little-endian address, third set are compare value, and fourth is replace value. Note that not all codes use a compare value.
 	//
@@ -586,7 +577,6 @@ int parse_txt_to_int(
 	// o_cheats Format
 	//
 	// uint8_t o_cheats[CHEATS_MAX_CHEATS * CHEATS_BYTES_PER_CHEAT] = {
-	// uint8_t o_cheats[32 * 8] = {
 	//									compare_enable_LSB_0, compare_enable_MSB_0,
 	//									address_LSB_0, address_MSB_0,
 	//									compare_value_LSB_0, compare_value_MSB_0,
@@ -599,55 +589,8 @@ int parse_txt_to_int(
 	//									compare_value_LSB_15, compare_value_MSB_15,
 	//									replace_LSB_15, replace_MSB_15
 	// 							  }
-	char * buffer = 0;
-	int length;
-	int r, br;
-	uint8_t* o_cheats_ui = (uint8_t *)o_cheats;	
-	
-	if(!i_file){
-		DEBUG("[Cheats] Cannot open file\n");
-		return 1;
-	}
-	else{
-		// Start reading file
-		f_lseek (i_file, SEEK_END);
-		length = f_tell (i_file);
-		if(!length){
-			DEBUG("[Cheats] Empty file\n");
-			return 1;
-		}
-		else{
-			f_lseek (i_file, SEEK_SET);
-  			if(!buffer){
-				DEBUG("[Cheats] Empty buffer\n");
-				return 1;
-			}
-			else{
-				r = f_read(i_file, load_buf_cheat, length, &br);
-			}
-		}
-	}
 
-	// Parse str to binary
-	if(buffer){
-		cheat_counter = 0;
-		for(int i;i<length;i=i+3){
-			o_cheats_ui[i%3] = ascii_to_uint8(load_buf_cheat[i], load_buf_cheat[i+1]);
-			cheat_counter++;
-		}
-		if(!cheat_counter){
-			DEBUG("[Cheats] No cheats in file\n");
-			return 1;
-		}
-	}
-	return 0;
-}
-
-
-// Load a cheat file if available
-// Return 0 if successful
-int load_cheats(void){
-	bool cheat_txt_loaded = false;	
+	bool cheat_cwz_loaded = false;	
 	memcpy(load_fname_cheat, load_fname, 1024);
 	for(int i=0; i<(1024-3); ++i){
 		if(
@@ -656,13 +599,13 @@ int load_cheats(void){
 			load_fname_cheat[i+2] == 'e' && 
 			load_fname_cheat[i+3] == 's')
 			{
-				load_fname_cheat[i+1] = 't';
-				load_fname_cheat[i+2] = 'x';
-				load_fname_cheat[i+3] = 't';
-				cheat_txt_loaded = true;
+				load_fname_cheat[i+1] = 'c';
+				load_fname_cheat[i+2] = 'w';
+				load_fname_cheat[i+3] = 'z';
+				cheat_cwz_loaded = true;
 		}
 	}
-	if(!cheat_txt_loaded){
+	if(!cheat_cwz_loaded){
 		DEBUG("[Cheats] TXT not found\n");
 		return 1;
 	}
@@ -680,16 +623,21 @@ int load_cheats(void){
 		DEBUG("[Cheats] Cannot open file\n");
 		return 1;
 	}
-	else{
-		// Parse from ASCII to an array
-		int parse_ret = parse_txt_to_int(&f, (void *)nes_cheats);
-		if(parse_ret){
-			DEBUG("[Cheats] Cannot parse TXT\n");
-			return 1;
-		}
-	
-		f_close(&f);
+	// Load file
+	// FRESULT f_read (FIL* fp, void* buff, UINT btr, UINT* br)
+	int br;
+	if ((r = f_read(&f, load_buf_cheat, 1024, &br)) != FR_OK){
+		DEBUG("[Cheats] Cannot read cheat file");
+		return 1;
 	}
+	
+	// Move to registers
+	reg_wr_cheats_loaded(br);
+	reg_wr_cheats_loaded(true);
+	reg_wr_cheats_memory(load_buf_cheat, br);
+	
+
+	f_close(&f);
 }
 
 // Load a NES rom file.
@@ -745,8 +693,7 @@ int loadnes(int rom) {
 
 	DEBUG("loadnes: %d bytes\n", total);
 	if(reg_rd_cheats_enabled()){
-		int cheats_available = load_cheats();
-		if(cheats_available)
+		if(reg_rd_cheats_available())
 			DEBUG("Cheats available");
 		else
 			DEBUG("Cheats unavailable");

@@ -10,19 +10,20 @@
 #define DEBUG(...) uart_printf(__VA_ARGS__)
 // #define DEBUG(...) do {} while(0)
 
-#define reg_textdisp       (*(volatile uint32_t*)0x02000000)
-#define reg_uart_clkdiv    (*(volatile uint32_t*)0x02000010)
-#define reg_uart_data      (*(volatile uint32_t*)0x02000014)
-#define reg_spimaster_byte (*(volatile uint32_t*)0x02000020)
-#define reg_spimaster_word (*(volatile uint32_t*)0x02000024)
-#define reg_romload_ctrl   (*(volatile uint32_t*)0x02000030)
-#define reg_romload_data   (*(volatile uint32_t*)0x02000034)
-#define reg_joystick       (*(volatile uint32_t*)0x02000040)
-#define reg_time           (*(volatile uint32_t*)0x02000050)
-#define reg_core_id        (*(volatile uint32_t*)0x02000060)
+#define reg_textdisp            (*(volatile uint32_t*)0x02000000)
+#define reg_uart_clkdiv         (*(volatile uint32_t*)0x02000010)
+#define reg_uart_data           (*(volatile uint32_t*)0x02000014)
+#define reg_spimaster_byte      (*(volatile uint32_t*)0x02000020)
+#define reg_spimaster_word      (*(volatile uint32_t*)0x02000024)
+#define reg_romload_ctrl        (*(volatile uint32_t*)0x02000030)
+#define reg_romload_data        (*(volatile uint32_t*)0x02000034)
+#define reg_joystick            (*(volatile uint32_t*)0x02000040)
+#define reg_time                (*(volatile uint32_t*)0x02000050)
+#define reg_core_id             (*(volatile uint32_t*)0x02000060)
 // Cheats
 #define cheats_enabled          (*(volatile uint32_t*)0x02000070)
 #define cheats_loaded           (*(volatile uint32_t*)0x02000080)
+#define cheats_available        (*(volatile uint32_t*)0x02000090)
 #define cheats_cheats_memory    (*(volatile uint32_t*)0x020000A0)
 // Start using after 0x02000090 + CHEATS_TOTAL_BYTES
 
@@ -105,9 +106,11 @@ inline uint32_t time_millis() {
 void reg_wr_cheats_enabled(bool value);
 bool reg_rd_cheats_enabled(void);
 void reg_wr_cheats_loaded(int value);
-bool reg_rd_cheats_loaded(void);
-void reg_wr_cheats_memory(int* buf, int len);
-void reg_rd_cheats_memory(int* buf, int len);
+int reg_rd_cheats_loaded(void);
+void reg_wr_cheats_available(bool value);
+bool reg_rd_cheats_available(void);
+void reg_wr_cheats_memory(uint8_t* buf, int len);
+void reg_rd_cheats_memory(uint8_t* buf, int len);
 
 // string functions
 // #ifndef strstr
