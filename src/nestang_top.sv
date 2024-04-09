@@ -484,6 +484,30 @@ always @(posedge clk) begin            // RV
     end
 end
 
+iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang logo
+    iosys (
+    .clk(clk), .hclk(hclk), .resetn(sys_resetn),
+
+    .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
+    .overlay_color(overlay_color),
+    .joy1(nes_btn), .joy2(nes_btn2),
+
+    .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid), 
+    .ram_busy(sdram_busy),
+
+    .rv_valid(rv_valid), .rv_ready(rv_ready), .rv_addr(rv_addr),
+    .rv_wdata(rv_wdata), .rv_wstrb(rv_wstrb), .rv_rdata(rv_rdata),
+
+    .flash_spi_cs_n(flash_spi_cs_n), .flash_spi_miso(flash_spi_miso),
+    .flash_spi_mosi(flash_spi_mosi), .flash_spi_clk(flash_spi_clk),
+    .flash_spi_wp_n(flash_spi_wp_n), .flash_spi_hold_n(flash_spi_hold_n),
+
+    .uart_tx(UART_TXD), .uart_rx(UART_RXD),
+
+    .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
+    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3)
+);
+
 // Cheats
 reg NES_cheats_enabled;
 reg NES_cheats_available;
