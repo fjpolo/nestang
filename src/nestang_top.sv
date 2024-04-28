@@ -70,10 +70,10 @@ module nestang_top (
     // NES gamepad
 `ifdef NANO
     output NES_gamepad_data_clock,
-    output NES_gampepad_data_latch,
+    output NES_gamepad_data_latch,
     input NES_gampead_serial_data,
     output NES_gamepad_data_clock2,
-    output NES_gampepad_data_latch2,
+    output NES_gamepad_data_latch2,
     input NES_gampead_serial_data2,
 `endif
 
@@ -483,7 +483,7 @@ NESGamepad nes_gamepad(
     .i_clk(clk),
     .i_rst(sys_resetn),
     .o_data_clock(NES_gamepad_data_clock),
-    .o_data_latch(NES_gampepad_data_latch),
+    .o_data_latch(NES_gamepad_data_latch),
     .i_serial_data(NES_gampead_serial_data),
     .o_button_state(NES_gamepad_button_state),
     .o_data_available(NES_gamepad_data_available)
@@ -493,7 +493,7 @@ NESGamepad nes_gamepad2(
     .i_clk(clk),
     .i_rst(sys_resetn),
     .o_data_clock(NES_gamepad_data_clock2),
-    .o_data_latch(NES_gampepad_data_latch2),
+    .o_data_latch(NES_gamepad_data_latch2),
     .i_serial_data(NES_gampead_serial_data2),
     .o_button_state(NES_gamepad_button_state2),
     .o_data_available(NES_gamepad_data_available2)
