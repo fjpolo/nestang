@@ -89,4 +89,73 @@ end
 
 assign tx_busy = (state != STATE_IDLE);
 
+//
+// FORMAL VERIFICATION
+//
+`ifdef FORMAL
+
+    `ifdef UART_TX
+		`define	ASSUME	assume
+	`else
+		`define	ASSUME	assert
+	`endif
+
+    // f_past_valid
+	reg	f_past_valid;
+	initial	f_past_valid = 1'b0;
+	always @(posedge clk)
+		f_past_valid <= 1'b1;
+
+    // Prove that tx_clkcnt counter correctly
+    always @(*)
+        if(f_past_valid)
+            assert(tx_clkcnt <= TX_CLK_MAX);
+    always @(posedge clk) begin
+        if(f_past_valid) begin
+            if ($past(tx_clkcnt) >= TX_CLK_MAX)
+                assert(tx_clkcnt == 0);
+            else
+                assert(tx_clkcnt <= ($past(tx_clkcnt) + 1));
+        end
+    end
+
+    //
+    // Contract
+    //
+    always @(posedge clk) begin
+        if(f_past_valid) begin
+            `ASSUME(din == $past(din));
+            case($past(state))
+                STATE_IDLE: begin
+                    if($past(localwr_en) == 1) begin
+                        assert(data == $past(localdin));
+                        assert(bitpos == 3'h0);
+                    end
+                end
+                STATE_START: begin
+                    if ($past(tx_clk)) begin
+                        assert(tx_p == 1'b0);
+                    end
+                end
+                STATE_DATA: begin
+                    if ($past(tx_clk)) begin
+                        if ($past(bitpos) != 3'h7)
+                           assert(bitpos == $past(bitpos) + 3'h1);
+                        assert(tx_p == $past(data[bitpos]));
+                    end
+                end
+                STATE_STOP: begin
+                    if ($past(tx_clk)) begin
+                        assert(tx_p == 1'b1);
+                    end
+                end
+                default: begin
+                    assert(tx_p == 1'b1);
+                end
+            endcase
+        end
+    end
+
+`endif // FORMAL 
+
 endmodule
