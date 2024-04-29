@@ -1,29 +1,39 @@
 [tasks]
-uart_tx_V2
+autofire
 NESGamepad
+uart_tx_V2
 
 [options]
-# UART Tx V2
-uart_tx_V2:     mode prove
-uart_tx_V2:     depth 25
+# autofire
+autofire:       mode prove
+autofire:       depth 25
 # NESGamepad
 NESGamepad:     mode prove
 NESGamepad:     depth 25     
+# UART Tx V2
+uart_tx_V2:     mode prove
+uart_tx_V2:     depth 25
 
 [engines]
-smtbmc
+autofire: smtbmc
+NESGamepad: smtbmc
+uart_tx_V2: smtbmc
 # abc pdr
 # aiger avy
 # aiger suprove
 
 [script]
-# UART Tx V2
-uart_tx_V2: read_verilog -DUART_TX -formal uart_tx_V2.v
-uart_tx_V2: prep -top uart_tx_V2
+# autofire
+autofire: read_verilog -DAUTOFIRE -formal autofire.v
+autofire: prep -top Autofire
 # NESGamepad
 NESGamepad: read_verilog -DNESGAMEPAD -formal NESGamepad.v
 NESGamepad: prep -top NESGamepad
+# UART Tx V2
+uart_tx_V2: read_verilog -DUART_TX -formal uart_tx_V2.v
+uart_tx_V2: prep -top uart_tx_V2
 
 [files]
-uart_tx_V2.v
+autofire.v
 NESGamepad.v
+uart_tx_V2.v
