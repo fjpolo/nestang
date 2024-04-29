@@ -1,9 +1,14 @@
 [tasks]
 uart_tx_V2
+NESGamepad
 
 [options]
-uart_tx_V2:    mode prove
-uart_tx_V2:    depth 25
+# UART Tx V2
+uart_tx_V2:     mode prove
+uart_tx_V2:     depth 25
+# NESGamepad
+NESGamepad:     mode prove
+NESGamepad:     depth 25     
 
 [engines]
 smtbmc
@@ -12,8 +17,13 @@ smtbmc
 # aiger suprove
 
 [script]
-read_verilog -DUART_TX -formal uart_tx_V2.v
-prep -top uart_tx_V2
+# UART Tx V2
+uart_tx_V2: read_verilog -DUART_TX -formal uart_tx_V2.v
+uart_tx_V2: prep -top uart_tx_V2
+# NESGamepad
+NESGamepad: read_verilog -DNESGAMEPAD -formal NESGamepad.v
+NESGamepad: prep -top NESGamepad
 
 [files]
 uart_tx_V2.v
+NESGamepad.v
