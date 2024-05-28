@@ -83,7 +83,10 @@ module iosys #(
     input  sd_dat0,                 // MISO
     output sd_dat1,                 // 1
     output sd_dat2,                 // 1
-    output sd_dat3                  // 0 for SPI mode
+    output sd_dat3,                 // 0 for SPI mode
+
+    // Enhanced APU
+    output o_reg_enhanced_apu
 );
 
 /* verilator lint_off PINMISSING */
@@ -186,8 +189,10 @@ wire        time_reg_sel = mem_valid && (mem_addr == 32'h0200_0050);        // m
 
 wire        id_reg_sel = mem_valid && (mem_addr == 32'h0200_0060);
 
+wire        id_reg_enhanced_apu_sel = mem_valid && (mem_addr == 32'h0200_0080);
+
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
-            romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel ||
+            romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel || id_reg_enhanced_apu_sel ||
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait);
 
@@ -197,6 +202,7 @@ assign mem_rdata = ram_ready ? ram_rdata :
         simpleuart_reg_dat_sel ? simpleuart_reg_dat_do : 
         time_reg_sel ? time_reg :
         id_reg_sel ? {16'b0, CORE_ID} :
+        id_reg_enhanced_apu_sel ? reg_enhanced_apu :
         (simplespimaster_reg_byte_sel | simplespimaster_reg_word_sel) ? simplespimaster_reg_do : 
         32'h 0000_0000;
 
@@ -327,6 +333,19 @@ always @(posedge clk) begin
         end
     end
 end
+
+// Enhanced RAM register
+reg reg_enhanced_apu;
+always @(posedge clk) begin
+    if(~resetn) begin
+        reg_enhanced_apu <= 0;
+    end
+    if(mem_addr == 32'h0200_0080) begin
+            reg_enhanced_apu <= mem_wdata;
+    end
+end
+
+assign o_reg_enhanced_apu = reg_enhanced_apu;
 
 // assign led = ~{2'b0, (^ total_refresh[7:0]), s0, flash_cnt[12]};     // flash while loading
 

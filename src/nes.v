@@ -118,7 +118,9 @@ module NES(
 	output        gg_avail,
 	input         gg_reset,
 	output  [2:0] emphasis,
-	output        save_written
+	output        save_written,
+	// Enhanced APU
+	input 		  i_APU_enhancements_ce
 );
 
 
