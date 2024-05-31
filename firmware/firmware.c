@@ -413,7 +413,7 @@ void menu_options() {
 		else
 			print("No");
 		cursor(2, 17);
-		print("EB Test:");
+		print("wb_test:");
 		cursor(16, 17);
 		if (option_wb_test)
 			print("Yes");
