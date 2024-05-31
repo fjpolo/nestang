@@ -441,7 +441,6 @@ void menu_options() {
 					} else if (choice == 4) {
 						option_enhanced_apu = !option_enhanced_apu;
 						reg_enhanced_apu = !reg_enhanced_apu;
-					}
 					} else if (choice == 5) {
 						option_wb_test = !option_wb_test;
 						reg_wb_test = !reg_wb_test;
