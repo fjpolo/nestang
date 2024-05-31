@@ -1,0 +1,4 @@
+wishbone_slave/
+wishbone_slave_bound/
+wishbone_slave_prf/
+wishbone_slave_cvr/
