@@ -80,9 +80,6 @@ assign o_wb_odata = wb_odata;
             assume(i_wb_cyc);
         end
 
-
-
-
     // BMC Assertions
     always @(posedge i_clk)
         if((f_past_valid)&&($past(f_past_valid))&&((~$past(i_reset_n))||(~$past(i_wb_err)))) begin

@@ -25,6 +25,7 @@ int option_osd_key = OPTION_OSD_KEY_SELECT_RIGHT;
 #define OSD_KEY_CODE (option_osd_key == OPTION_OSD_KEY_SELECT_START ? 0xC : (option_osd_key == OPTION_OSD_KEY_SELECT_RIGHT ? 0x84 : 0x24))
 bool option_backup_bsram = false;
 bool option_enhanced_apu = false;
+bool option_wb_test = false;
 
 bool snes_running;
 int snes_ramsize;
@@ -90,6 +91,15 @@ int load_option()  {
 				option_enhanced_apu = false;
 				enhanced_apu_disable(); 
 			}
+		} else if (strcmp(key, "wb_test") == 0) {
+			if (strcasecmp(value, "true") == 0){
+				option_wb_test = true;
+				reg_wb_test = true;
+			}
+			else{
+				option_wb_test = false;
+				reg_wb_test = false;
+			}
 		}else {
 			// just ignore unknown keys
 		}
@@ -127,6 +137,14 @@ int save_option() {
 
 	f_puts("enhanced_apu=", &f);
 	if (option_enhanced_apu){
+		f_puts("true\n", &f);
+	}
+	else{
+		f_puts("false\n", &f);
+	}
+
+	f_puts("wb_test=", &f);
+	if (option_wb_test){
 		f_puts("true\n", &f);
 	}
 	else{
@@ -394,11 +412,18 @@ void menu_options() {
 			print("Yes");
 		else
 			print("No");
+		cursor(2, 17);
+		print("EB Test:");
+		cursor(16, 17);
+		if (option_wb_test)
+			print("Yes");
+		else
+			print("No");
 
 		delay(300);
 
 		for (;;) {
-			if (joy_choice(12, 5, &choice, OSD_KEY_CODE) == 1) {
+			if (joy_choice(12, 6, &choice, OSD_KEY_CODE) == 1) {
 				if (choice == 0) {
 					return;
 				} else if (choice == 1) {
@@ -416,6 +441,10 @@ void menu_options() {
 					} else if (choice == 4) {
 						option_enhanced_apu = !option_enhanced_apu;
 						reg_enhanced_apu = !reg_enhanced_apu;
+					}
+					} else if (choice == 5) {
+						option_wb_test = !option_wb_test;
+						reg_wb_test = !reg_wb_test;
 					}
 					status("Saving options...");
 					if (save_option()) {
