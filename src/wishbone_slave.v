@@ -99,6 +99,11 @@ assign o_wb_odata = wb_odata;
             assert(led == !i_wb_idata[0]);
             assert(wb_odata == i_wb_idata);
         end
+
+    always @(posedge i_clk)
+        if((f_past_valid)&&($past(f_past_valid))&&((~$past(i_reset_n))||(~$past(i_wb_err))))
+            if(i_wb_stb)
+                assert(o_wb_ack);
     
     // Induction assumptions
 
