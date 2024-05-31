@@ -31,6 +31,7 @@
 `define PICOSOC_V
 
 module iosys #(
+    `include "wishbone_slaves.vh",
     parameter FREQ=21_477_000,
     parameter [14:0] COLOR_LOGO=15'b00000_10101_00000,
     parameter [15:0] CORE_ID=1      // 1: nestang, 2: snestang
@@ -83,7 +84,25 @@ module iosys #(
     input  sd_dat0,                 // MISO
     output sd_dat1,                 // 1
     output sd_dat2,                 // 1
-    output sd_dat3                  // 0 for SPI mode
+    output sd_dat3,                 // 0 for SPI mode
+
+    // Enhanced APU
+    output o_reg_enhanced_apu,
+
+    // Wishbone master
+	//	The return bus wires
+	input	wire            i_wb_ack, 
+    input	wire            i_wb_stall, 
+    input	wire    [31:0]  i_wb_idata,
+    input	wire            i_wb_err, 
+    // The bus control output wires
+	output  wire            o_wb_cyc,
+    output	wire            o_wb_stb,
+    output	wire            o_wb_we,
+    input	wire            o_wb_err, 
+    output	wire    [1:0]   o_wb_addr, 
+    output	wire    [31:0]  o_wb_odata, 
+    output	wire    [3:0]   o_wb_sel
 );
 
 /* verilator lint_off PINMISSING */
@@ -186,8 +205,13 @@ wire        time_reg_sel = mem_valid && (mem_addr == 32'h0200_0050);        // m
 
 wire        id_reg_sel = mem_valid && (mem_addr == 32'h0200_0060);
 
+wire        id_reg_enhanced_apu_sel = mem_valid && (mem_addr == 32'h0200_0080);
+
+wire        id_reg_wb_test_sel = mem_valid && (mem_addr == 32'h0200_00A0);
+
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
             romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel ||
+            romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel || id_reg_enhanced_apu_sel ||
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait);
 
@@ -197,6 +221,8 @@ assign mem_rdata = ram_ready ? ram_rdata :
         simpleuart_reg_dat_sel ? simpleuart_reg_dat_do : 
         time_reg_sel ? time_reg :
         id_reg_sel ? {16'b0, CORE_ID} :
+        id_reg_enhanced_apu_sel ? reg_enhanced_apu :
+        id_reg_wb_test_sel ? reg_wb_test :
         (simplespimaster_reg_byte_sel | simplespimaster_reg_word_sel) ? simplespimaster_reg_do : 
         32'h 0000_0000;
 
@@ -329,6 +355,85 @@ always @(posedge clk) begin
 end
 
 // assign led = ~{2'b0, (^ total_refresh[7:0]), s0, flash_cnt[12]};     // flash while loading
+
+// Enhanced RAM register
+reg reg_enhanced_apu;
+always @(posedge clk) begin
+    if(~resetn) begin
+        reg_enhanced_apu <= 0;
+    end
+    if(mem_addr == 32'h0200_0080) begin
+            reg_enhanced_apu <= mem_wdata;
+    end
+end
+
+assign o_reg_enhanced_apu = reg_enhanced_apu;
+
+// Wishbone test
+reg reg_wb_test;
+reg reg_wb_test_last;
+wire wb_test_stb;
+
+assign wb_test_stb = (reg_wb_test_last != reg_wb_test);
+
+always @(posedge clk) begin
+    if(~resetn) begin
+        reg_wb_test <= 0;
+    end
+    if(mem_addr == 32'h0200_00A0) begin
+            reg_wb_test <= mem_wdata;
+    end
+    if(reg_wb_test_last != reg_wb_test)
+        reg_wb_test <= reg_wb_test;
+end
+
+//
+// Wishbone master
+//
+reg [1:0] wb_addr;
+reg [31:0] wb_odata;
+reg wb_we;
+reg wb_cyc;
+reg wb_stb;
+reg wb_err;
+
+initial wb_err = 1'b0;
+initial	wb_cyc = 1'b0;
+initial	wb_stb = 1'b0;
+
+
+always @(posedge clk) begin
+    if((~resetn)||(i_wb_err)) begin
+        wb_cyc <= 1'b0;
+	    wb_stb <= 1'b0;
+        if(~resetn) begin
+            // ToDo: reset stuff
+        end
+    end else begin
+        // ToDo: Do bus stuff
+
+        // Wishbone test
+        wb_addr <= 0;
+        wb_odata <= 32'h0000;
+        wb_we <= 1'b0;
+        wb_stb <= 1'b0;
+        if((wb_test_stb)&&(~i_wb_stall)) begin
+            wb_addr <= WISHBONE_SLAVE_ADDRESS_TEST;
+            wb_odata <= reg_wb_test;
+            wb_we <= 1'b1;
+            wb_cyc <= 1'b1;
+            wb_stb <= 1'b1;
+        end
+        if((wb_cyc)&&(i_wb_ack))
+            wb_cyc <= 1'b0;
+    end
+end
+
+assign o_wb_addr = wb_addr;
+assign o_wb_odata = wb_odata;
+assign o_wb_we = wb_we;
+assign o_wb_stb = wb_stb;
+assign o_wb_cyc = wb_cyc;
 
 endmodule
 

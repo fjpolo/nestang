@@ -474,7 +474,20 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
 
     .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat0(sd_dat0), .sd_dat1(sd_dat1),
-    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3)
+    .sd_dat2(sd_dat2), .sd_dat3(sd_dat3),
+    
+    // Wishbone master
+    .i_wb_ack(NES_wb_slave_ack),
+    .i_wb_stall(NES_wb_slave_stall),
+    .i_wb_idata(NES_wb_slave_data),
+    .i_wb_err(NES_wb_slave_err),
+	.o_wb_cyc(NES_wb_master_cyc),
+    .o_wb_stb(NES_wb_master_stb),
+    .o_wb_we(NES_wb_master_we),
+    .o_wb_err(NES_wb_master_err),
+    .o_wb_addr(NES_wb_slave_addr),
+    .o_wb_odata(NES_wb_master_data),
+    .o_wb_sel(NES_wb_master_sel)
 );
 
 // Controller input
@@ -554,10 +567,43 @@ assign joypad2_data[0] = joypad_bits2[0];
 
 //assign led = ~{~UART_RXD, loader_done};
 //assign led = ~{~UART_RXD, usb_conerr, loader_done};
-assign led = {joy1_btns[1], joy1_btns[0]};
+// assign led = {joy1_btns[1], joy1_btns[0]};
 
 reg [23:0] led_cnt;
 always @(posedge clk) led_cnt <= led_cnt + 1;
 //assign led = {led_cnt[23], led_cnt[22]};
+
+//
+// Wishbone Bus
+//
+wire NES_wb_master_cyc;
+wire NES_wb_master_stb;
+wire NES_wb_master_we;
+wire NES_wb_master_err;
+wire [1:0] NES_wb_slave_addr;
+wire [31:0] NES_wb_master_data;
+wire NES_wb_slave_ack;
+wire NES_wb_slave_stall;
+wire NES_wb_slave_err;
+wire [31:0] NES_wb_slave_data;
+wire [2:0] NES_wb_slave_sel;
+
+// Wishbone test
+wishbone_slave wb_slave(
+    .i_clk(clk),
+    .i_reset_n(sys_resetn),
+    .o_led(led[0]),
+    .i_wb_cyc(NES_wb_master_cyc),
+    .i_wb_stb(NES_wb_master_stb),
+    .i_wb_we(NES_wb_master_we),
+    .i_wb_err(NES_wb_master_err),
+    .i_wb_addr(NES_wb_slave_addr),
+    .i_wb_idata(NES_wb_master_data),
+    .o_wb_ack(NES_wb_slave_ack),
+    .o_wb_stall(NES_wb_slave_stall),
+    .o_wb_err(NES_wb_slave_err),
+    .o_wb_odata(NES_wb_slave_data)
+);
+
 
 endmodule
