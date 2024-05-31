@@ -30,7 +30,6 @@ always @(posedge i_clk) begin
         wb_err <= 1'b0;
         led <= 1'b0;
         wb_stall <= 1'b0;
-        wb_ack <= 1'b0;
     end else begin
         if((i_wb_stb)&&(i_wb_cyc)&&(i_wb_we)&&(~i_wb_err)&&(i_wb_addr == 1))
             led <= i_wb_idata[0];
@@ -40,7 +39,6 @@ end
 
 assign o_wb_ack = i_wb_stb;
 assign o_led = led;
-assign o_wb_ack = wb_ack;
 assign o_wb_stall = wb_stall;
 assign o_wb_err = wb_err;
 assign o_wb_odata = wb_odata;
