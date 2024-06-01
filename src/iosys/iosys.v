@@ -210,8 +210,8 @@ wire        id_reg_enhanced_apu_sel = mem_valid && (mem_addr == 32'h0200_0080);
 wire        id_reg_wb_test_sel = mem_valid && (mem_addr == 32'h0200_00A0);
 
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
-            romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel ||
-            romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel || id_reg_enhanced_apu_sel ||
+            romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel || 
+            id_reg_enhanced_apu_sel|| id_reg_wb_test_sel ||
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait);
 
@@ -222,7 +222,7 @@ assign mem_rdata = ram_ready ? ram_rdata :
         time_reg_sel ? time_reg :
         id_reg_sel ? {16'b0, CORE_ID} :
         id_reg_enhanced_apu_sel ? reg_enhanced_apu :
-        id_reg_wb_test_sel ? reg_wb_test :
+        id_reg_wb_test_sel ? reg_wb_test[0] :
         (simplespimaster_reg_byte_sel | simplespimaster_reg_word_sel) ? simplespimaster_reg_do : 
         32'h 0000_0000;
 
@@ -370,8 +370,8 @@ end
 assign o_reg_enhanced_apu = reg_enhanced_apu;
 
 // Wishbone test
-reg reg_wb_test;
-reg reg_wb_test_last;
+reg [31:0] reg_wb_test;
+reg [31:0] reg_wb_test_last;
 wire wb_test_stb;
 
 assign wb_test_stb = (reg_wb_test_last != reg_wb_test);
@@ -383,9 +383,12 @@ always @(posedge clk) begin
     if(mem_addr == 32'h0200_00A0) begin
             reg_wb_test <= mem_wdata;
     end
-    if(reg_wb_test_last != reg_wb_test)
-        reg_wb_test <= reg_wb_test;
+    if(reg_wb_test_last != reg_wb_test) begin
+        reg_wb_test_last <= reg_wb_test;
+    end
 end
+
+
 
 //
 // Wishbone master
@@ -413,19 +416,26 @@ always @(posedge clk) begin
         // ToDo: Do bus stuff
 
         // Wishbone test
-        wb_addr <= 0;
-        wb_odata <= 32'h0000;
-        wb_we <= 1'b0;
-        wb_stb <= 1'b0;
-        if((wb_test_stb)&&(~i_wb_stall)) begin
-            wb_addr <= WISHBONE_SLAVE_ADDRESS_TEST;
+        if((wb_test_stb)&&(~i_wb_stall)&&(~wb_cyc)) begin
+            // wb_addr <= WISHBONE_SLAVE_ADDRESS_TEST;
+            wb_addr <= 1'b1;
             wb_odata <= reg_wb_test;
             wb_we <= 1'b1;
             wb_cyc <= 1'b1;
             wb_stb <= 1'b1;
+            // Debug
+            if(reg_wb_test[0])
+                led <= 1'b0;
+            else
+                led <= 1'b1;
         end
-        if((wb_cyc)&&(i_wb_ack))
-            wb_cyc <= 1'b0;
+        if(wb_cyc) begin
+            wb_addr <= 0;
+            wb_we <= 1'b0;
+            wb_stb <= 1'b0;
+            if(i_wb_ack)
+                wb_cyc <= 1'b0;
+        end
     end
 end
 

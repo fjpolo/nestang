@@ -6,7 +6,6 @@ module wishbone_slave #(
                         (
                             input wire i_clk,
                             input wire i_reset_n,
-                            output wire o_led,
                             // Wishbone slave
                             input wire i_wb_cyc,
                             input wire i_wb_stb,
@@ -19,34 +18,29 @@ module wishbone_slave #(
                             output wire o_wb_err,
                             output wire [31:0]  o_wb_odata
                      );
-reg led;
 reg wb_ack;
-reg wb_stall;
 reg wb_err;
 reg [31:0] wb_odata;
+reg wb_stall;
 
-initial led = 0;
 initial wb_ack = 0;
-initial wb_stall = 0;
 initial wb_err = 0;
 initial wb_odata = 0;
+initial wb_stall= 0;
 
 always @(posedge i_clk) begin
     if((~i_reset_n)||(~i_wb_err)) begin
         wb_err <= 1'b0;
-        led <= 1'b0;
-        wb_stall <= 1'b0;
     end else begin
         if(i_reset_n)
-            if((i_wb_stb)&&(i_wb_cyc)&&(i_wb_we)&&(~i_wb_err)&&(i_wb_addr == 1)&&(~wb_stall)) begin
-                led <= !i_wb_idata[0];
-                wb_odata <= i_wb_idata;
-            end
+            if((i_wb_stb)&&(i_wb_we)&&(i_wb_we)&&((i_wb_addr == 1'b1))&&(i_wb_we)&&(~o_wb_err)) begin
+                wb_stall <= 1'b1;
+            end else 
+                wb_stall <= 1'b0;
     end
 end
 
 assign o_wb_ack = i_wb_stb;
-assign o_led = led;
 assign o_wb_stall = wb_stall;
 assign o_wb_err = wb_err;
 assign o_wb_odata = wb_odata;
@@ -85,7 +79,6 @@ assign o_wb_odata = wb_odata;
         if((f_past_valid)&&($past(f_past_valid))&&((~$past(i_reset_n))||(~$past(i_wb_err)))) begin
             assert(wb_err == 1'b0);
             assert(led == 1'b0);
-            assert(wb_stall == 1'b0);
         end
 
     // Cover

@@ -200,7 +200,7 @@ always @(posedge clk) begin
     reset_cnt <= reset_cnt == 0 ? 0 : reset_cnt - 1;
     if (reset_cnt == 0)
 //    if (reset_cnt == 0 && s1)     // for nano
-        sys_resetn <= ~(joy1_btns[5] && joy1_btns[2]);    // 8BitDo Home button = Select + Down
+        sys_resetn <= ~(joy1_btns[5] && joy1_btns[3]);    // 8BitDo Home button = Select + Down
 end
 
 `ifndef VERILATOR
@@ -592,7 +592,6 @@ wire [2:0] NES_wb_slave_sel;
 wishbone_slave wb_slave(
     .i_clk(clk),
     .i_reset_n(sys_resetn),
-    .o_led(led[0]),
     .i_wb_cyc(NES_wb_master_cyc),
     .i_wb_stb(NES_wb_master_stb),
     .i_wb_we(NES_wb_master_we),
@@ -604,6 +603,5 @@ wishbone_slave wb_slave(
     .o_wb_err(NES_wb_slave_err),
     .o_wb_odata(NES_wb_slave_data)
 );
-
 
 endmodule
