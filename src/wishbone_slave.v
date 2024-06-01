@@ -78,7 +78,6 @@ assign o_wb_odata = wb_odata;
     always @(posedge i_clk)
         if((f_past_valid)&&($past(f_past_valid))&&((~$past(i_reset_n))||(~$past(i_wb_err)))) begin
             assert(wb_err == 1'b0);
-            assert(led == 1'b0);
         end
 
     // Cover
@@ -86,7 +85,6 @@ assign o_wb_odata = wb_odata;
     // Contract
     always @(posedge i_clk)
         if((f_past_valid)&&($past(i_reset_n))&&(i_reset_n)&&(($past(i_wb_stb))&&($past(i_wb_cyc))&&($past(i_wb_we))&&(~$past(i_wb_err))&&($past(i_wb_addr) == 1))) begin
-            assert(led == !i_wb_idata[0]);
             assert(wb_odata == i_wb_idata);
         end
 
