@@ -183,12 +183,13 @@ void joy_get(int *joy1, int *joy2) {
    uint32_t joy = reg_joystick;
    *joy1 = joy & 0xffff;
    *joy2 = (joy >> 16) & 0xffff;
+   // uart_printf("joy_get: joy1=%x, joy2=%x\n", *joy1, *joy2);
 }
 
 void backup_process();
 
 // (R L X A RT LT DN UP START SELECT Y B)
-// overlay_key_code: 0x84 for SELECT&RIGHT, 0xC for SELECT&START, 0x804 for SELECT/RB, 0x24 for HOME
+// overlay_key_code: 0x84 for SELECT&RIGHT, 0xC for SELECT&START, 0x804 for SELECT/RB
 int joy_choice(int start_line, int len, int *active, int overlay_key_code) {
    int joy1, joy2;
    int last = *active;
