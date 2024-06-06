@@ -5,6 +5,7 @@
 // Use build.bat to build. Then burn firmware.bin to SPI flash address 0x500000 with Gowin programmer.
 
 #include <stdbool.h>
+#include <stdio.h>
 #include "picorv32.h"
 #include "fatfs/ff.h"
 #include "firmware.h"
@@ -16,13 +17,20 @@ uint32_t CORE_ID;
 
 #define OPTION_OSD_KEY_SELECT_START 1
 #define OPTION_OSD_KEY_SELECT_RIGHT 2
+#define OPTION_OSD_KEY_HOME 3
+
+#define CHEATS_MAX_NUMBER 4
 
 // SNES BSRAM is mapped at address 7MB 
 volatile uint8_t *SNES_BSRAM = (volatile uint8_t *)0x07000000;
 
 int option_osd_key = OPTION_OSD_KEY_SELECT_RIGHT;
-#define OSD_KEY_CODE (option_osd_key == OPTION_OSD_KEY_SELECT_START ? 0xC : 0x84)
+#define OSD_KEY_CODE (option_osd_key == OPTION_OSD_KEY_SELECT_START ? 0xC : (option_osd_key == OPTION_OSD_KEY_SELECT_RIGHT ? 0x84 : 0x24))
 bool option_backup_bsram = false;
+bool option_enhanced_apu = false;
+bool option_cheats_enabled = false;
+
+static bool rom_loaded = false;
 
 bool snes_running;
 int snes_ramsize;
@@ -33,6 +41,15 @@ uint32_t snes_backup_time;
 
 char load_fname[1024];
 char load_buf[1024];
+
+// Enhanced APU - enable
+void enhanced_apu_enable(void){
+   reg_enhanced_apu = 1;
+}
+// Enhanced APU - disable
+void enhanced_apu_disable(void){
+   reg_enhanced_apu = 0;
+}
 
 // return 0: success, 1: no option file found, 2: option file corrupt
 int load_option()  {
@@ -98,13 +115,30 @@ int save_option() {
         f_puts("1\n", &f);
     else
         f_puts("2\n", &f);
-    
     f_puts("backup_bsram=", &f);
     if (option_backup_bsram)
         f_puts("true\n", &f);
     else
         f_puts("false\n", &f);
-        
+	if (option_backup_bsram)
+		f_puts("true\n", &f);
+	else
+		f_puts("false\n", &f);
+	f_puts("enhanced_apu=", &f);
+	if (option_enhanced_apu){
+		f_puts("true\n", &f);
+	}
+	else{
+		f_puts("false\n", &f);
+	}
+	f_puts("cheats_enabled=", &f);
+	if (option_cheats_enabled){
+		f_puts("true\n", &f);
+	}
+	else{
+		f_puts("false\n", &f);
+	}
+		
 save_options_close:
     f_close(&f);
     // hide snestang.ini in dir list
@@ -570,58 +604,270 @@ void _menu_select_core() {
     uart_printf("end select_core\n");
 }
 
+// load a cheats file.
+// return 0 if successful
+int load_cheats(int cheat_file) {
+	FIL f;
+	strncpy(load_fname, pwd, 1024);
+	strncat(load_fname, "/", 1024);
+	strncat(load_fname, file_names[cheat_file], 1024);
+
+	DEBUG("load cheats start\n");
+
+	// check extension .sfc or .smc
+	char *p = strcasestr(file_names[cheat_file], ".cwz");
+	if (p == NULL) {
+		status("Only .cwz supported");
+		goto load_cheats_end;
+	}
+
+	// initiaze sd again to be sure
+	if (sd_init() != 0) return 99;
+
+	int r = f_open(&f, load_fname, FA_READ);
+	if (r) {
+		status("Cannot open file");
+		reg_cheats_loaded = 0;
+		goto load_cheats_end;
+	}
+	int off = 0, br, total = 0;
+	int size = file_sizes[cheat_file];
+
+	// Parse here
+	BYTE s[16];
+	UINT rc;
+	uint8_t cheat_counter = 0;
+	for(int i=0; i<CHEATS_MAX_NUMBER; ++i){
+		f_read(&f, s, 16, &rc);
+		reg_cheats_data_ready = 0;
+		s[2] = (uint8_t)i+1;
+		reg_cheats_3 = (uint32_t)((uint16_t)(s[2] << 8) | (uint8_t)s[3]);
+		reg_cheats_2 = (uint32_t)((uint16_t)(s[6] << 8) | (uint8_t)s[7]);
+		reg_cheats_1 = (uint32_t)((uint16_t)(s[10] << 8) | (uint8_t)s[11]);
+		reg_cheats_0 = (uint32_t)((uint16_t)(s[14] << 8) | (uint8_t)s[15]);
+
+		cheat_counter++;
+
+		reg_cheats_data_ready = 1;
+		while(reg_cheats_data_ready == 1);
+		// delay(1000);
+	}
+
+	bool cheats_loaded = (cheat_counter == CHEATS_MAX_NUMBER);
+	if((reg_cheats_enabled)&&(option_cheats_enabled)&&(cheats_loaded)){
+		reg_cheats_loaded = 1;
+		status("Cheats loaded!");
+	}
+	else{
+		reg_cheats_loaded = 1;
+		status("Error loading");
+	}
+	reg_cheats_data_ready = 0;
+
+load_cheats_close_file:
+	f_close(&f);
+load_cheats_end:
+	return r;
+}
+
+// return 0: user chose a cheat file (*choice), 1: no choice made, -1: error
+// file chosen: pwd / file_name[*choice]
+int menu_load_cheats(int *choice) {
+	int page = 0, pages, total;
+	int active = 0;
+	pwd[0] = '/';
+	pwd[1] = '\0';
+	while (1) {
+		clear();
+		int r = load_dir(pwd, page*PAGESIZE, PAGESIZE, &total);
+		if (r == 0) {
+			pages = (total+PAGESIZE-1) / PAGESIZE;
+			status("Page ");
+			printf("%d/%d", page+1, pages);
+			if (active > file_len-1)
+				active = file_len-1;
+			for (int i = 0; i < PAGESIZE; i++) {
+				int idx = page*PAGESIZE + i;
+				cursor(2, i+TOPLINE);
+				if (idx < total) {
+					print(file_names[i]);
+					if (idx != 0 && file_dir[i])
+						print("/");
+				}
+			}
+			delay(300);
+			while (1) {
+				int r = joy_choice(TOPLINE, file_len, &active, OSD_KEY_CODE);
+				if (r == 1) {
+					if (strcmp(pwd, "/") == 0 && page == 0 && active == 0) {
+						// return to main menu
+						return 1;
+					} else if (file_dir[active]) {
+						if (file_names[active][0] == '.' && file_names[active][1] == '.') {
+							// return to parent dir
+							// message(file_names[active], 1);
+							char *slash = strrchr(pwd, '/');
+							if (slash)
+								*slash = '\0';
+						} else {								// enter sub dir
+							strncat(pwd, "/", PWD_SIZE);
+							strncat(pwd, file_names[active], PWD_SIZE);
+						}
+						active = 0;
+						page = 0;
+						break;
+					} else {
+						// actually load a cheat file
+						*choice = active;
+						int res;
+						if (CORE_ID == 1)
+							res = load_cheats(active);
+						else
+							res = load_cheats(active);
+						if (res != 0) {
+							message("Cannot load cheat file",1);
+							break;
+						}
+					}
+				}
+				if (r == 2 && page < pages-1) {
+					page++;
+					break;
+				} else if (r == 3 && page > 0) {
+					page--;
+					break;
+				}
+			}
+		} else {
+			status("Error opening directory");
+			printf(" %d", r);
+			return -1;
+		}
+	}
+}
+
+void menu_cheats_options() {
+	int choice = 0;
+	int cheat_file;
+	while (1) {
+		clear();
+		cursor(8, 10);
+		print("--- Cheats ---");
+
+		cursor(2, 12);
+		print("<< Return to main menu");
+		cursor(2, 14);
+		print("Cheats:");
+		cursor(16, 14);
+		if (option_cheats_enabled)
+			print("On");
+		else
+			print("Off");
+		cursor(2, 15);
+		print("Load cheat file");
+	
+
+		delay(300);
+
+		for (;;) {
+			if (joy_choice(12, 4, &choice, OSD_KEY_CODE) == 1) {
+				if (choice == 0) {
+					return;
+				} else if (choice == 1) {
+					// nothing
+				} else {
+					if (choice == 2) {
+						option_cheats_enabled = !option_cheats_enabled;
+						reg_cheats_enabled = option_cheats_enabled;
+					} else if (choice == 3) {
+						delay(300);
+						menu_load_cheats(&cheat_file);
+						// continue;
+					}
+					status("Saving options...");
+					if (save_option()) {
+						message("Cannot save options to SD",1);
+						break;
+					}
+					break;	// redraw UI
+				}
+			}
+		}
+	}
+}
+
 void menu_options() {
-    int choice = 0;
-    uart_print("options\n");
-    while (1) {
-        clear();
-        cursor(8, 10);
-        print("--- Options ---");
+	int choice = 0;
+	while (1) {
+		clear();
+		cursor(8, 10);
+		print("--- Options ---");
 
-        cursor(2, 12);
-        print("<< Return to main menu");
-        cursor(2, 14);
-        print("OSD hot key:");
-        cursor(16, 14);
-        if (option_osd_key == OPTION_OSD_KEY_SELECT_START)
-            print("SELECT&START");
-        else
-            print("SELECT&RIGHT");
-        cursor(2, 15);
-        print("Backup BSRAM:");
-        cursor(16, 15);
-        if (option_backup_bsram)
-            print("Yes");
-        else
-            print("No");
+		cursor(2, 12);
+		print("<< Return to main menu");
+		cursor(2, 14);
+		print("OSD hot key:");
+		cursor(16, 14);
+		if (option_osd_key == OPTION_OSD_KEY_SELECT_START)
+			print("SELECT&START");
+		else if(option_osd_key == OPTION_OSD_KEY_SELECT_RIGHT)
+			print("SELECT&RIGHT");
+		else
+			print("HOME");
+		cursor(2, 15);
+		print("Backup BSRAM:");
+		cursor(16, 15);
+		if (option_backup_bsram)
+			print("Yes");
+		else
+			print("No");
+		cursor(2, 16);
+		print("Enhanced APU:");
+		cursor(16, 16);
+		if (option_enhanced_apu)
+			print("Yes");
+		else
+			print("No");
+		cursor(2, 17);
+		print("Cheats");
 
-        delay(300);
+		delay(300);
 
-        for (;;) {
-            if (joy_choice(12, 4, &choice, OSD_KEY_CODE) == 1) {
-                if (choice == 0) {
-                    return;
-                } else if (choice == 1) {
-                    // nothing
-                } else {
-                    if (choice == 2) {
-                        if (option_osd_key == OPTION_OSD_KEY_SELECT_START)
-                            option_osd_key = OPTION_OSD_KEY_SELECT_RIGHT;
-                        else
-                            option_osd_key = OPTION_OSD_KEY_SELECT_START;
-                    } else if (choice == 3) {
-                        option_backup_bsram = !option_backup_bsram;
-                    }
-                    status("Saving options...");
-                    if (save_option()) {
-                        message("Cannot save options to SD",1);
-                        break;
-                    }
-                    break;	// redraw UI
-                }
-            }
-        }
-    }
+		for (;;) {
+			if (joy_choice(12, 6, &choice, OSD_KEY_CODE) == 1) {
+				if (choice == 0) {
+					return;
+				} else if (choice == 1) {
+					// nothing
+				} else {
+					if (choice == 2) {
+						if (option_osd_key == OPTION_OSD_KEY_SELECT_START)
+							option_osd_key = OPTION_OSD_KEY_SELECT_RIGHT;
+						else if (option_osd_key == OPTION_OSD_KEY_SELECT_RIGHT)
+							option_osd_key = OPTION_OSD_KEY_HOME;
+						else
+							option_osd_key = OPTION_OSD_KEY_SELECT_START;
+					} else if (choice == 3) {
+						option_backup_bsram = !option_backup_bsram;
+					} else if (choice == 4) {
+						option_enhanced_apu = !option_enhanced_apu;
+						reg_enhanced_apu = !reg_enhanced_apu;
+					} else if (choice == 5) {
+						delay(300);
+						menu_cheats_options();
+						//continue;
+					}
+					if(choice != 5)
+						status("Saving options...");
+					if (save_option()) {
+						message("Cannot save options to SD",1);
+						break;
+					}
+					break;	// redraw UI
+				}
+			}
+		}
+	}
 }
 
 int in_game;
@@ -777,7 +1023,7 @@ loadsnes_snes_end:
 loadsnes_close_file:
     f_close(&f);
 loadsnes_end:
-    return r;
+	return r;
 }
 
 // load a NES rom file.
@@ -838,11 +1084,11 @@ int loadnes(int rom) {
     overlay(0);		// turn off OSD
 
 loadnes_snes_end:
-    snes_ctrl(0);	// turn off game loading, this starts the core
+	snes_ctrl(0);	// turn off game loading, this starts the core
 loadnes_close_file:
-    f_close(&f);
+	f_close(&f);
 loadnes_end:
-    return r;
+	return r;
 }
 
 void backup_load(char *name, int size) {
@@ -883,8 +1129,7 @@ void backup_load(char *name, int size) {
 
 backup_load_crc:
     snes_bsram_crc16 = gen_crc16(bsram, size);
-
-    return;
+	return;
 }
 
 // return 0: successfully saved, 1: BSRAM unchanged, 2: file write failure
@@ -920,8 +1165,8 @@ int backup_save(char *name, int size) {
     snes_bsram_crc16 = newcrc;
 
 bsram_save_close:
-    f_close(&f);
-    return r;
+	f_close(&f);
+	return r;
 }
 
 int backup_success_time;
@@ -1073,4 +1318,3 @@ int main() {
         }
     }
 }
-
