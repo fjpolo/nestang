@@ -14,7 +14,10 @@ module LenCounterUnit (
     input  logic       is_triangle,
     input  logic       write,
     input  logic       enabled,
-    output logic       lc_on
+    output logic       lc_on,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
 
     always_ff @(posedge clk) begin : lenunit
@@ -24,22 +27,51 @@ module LenCounterUnit (
         logic lc_on_1;
         logic clear_next;
 
+        // Rewind
+        logic [7:0] len_counter_int_rewind;
+        logic halt_rewind, halt_next_rewind;
+        logic [7:0] len_counter_next_rewind;
+        logic lc_on_1_rewind;
+        logic clear_next_rewind;
+
+        if(i_rewind_time_to_save) begin
+            len_counter_int_rewind <= len_counter_int;
+            halt_rewind <= halt;
+            halt_next_rewind <= halt_next;
+            len_counter_next_rewind <= len_counter_next;
+            lc_on_1_rewind <= lc_on_1;
+            clear_next_rewind <= clear_next;
+        end
+
+        // Rewind END
+
         if (aclk1_d)
             if (~enabled)
                 lc_on <= 0;
 
-        if (aclk1) begin
-            lc_on_1 <= lc_on;
-            len_counter_next <= halt || ~|len_counter_int ? len_counter_int : len_counter_int - 1'd1;
-            clear_next <= ~halt && ~|len_counter_int;
+        if(i_rewind_time_to_load) begin
+            lc_on_1 <= lc_on_1_rewind;
+            len_counter_next <= len_counter_next_rewind;
+            clear_next <= clear_next_rewind;
+        end else begin
+            if (aclk1) begin
+                lc_on_1 <= lc_on;
+                len_counter_next <= halt || ~|len_counter_int ? len_counter_int : len_counter_int - 1'd1;
+                clear_next <= ~halt && ~|len_counter_int;
+            end
         end
 
-        if (write) begin
-            if (~addr) begin
-                halt <= halt_in;
-            end else begin
-                lc_on <= 1;
-                len_counter_int <= load_value;
+        if(i_rewind_time_to_load) begin
+            halt <= halt_rewind;
+            len_counter_int <= len_counter_int_rewind;
+        end else begin
+            if (write) begin
+                if (~addr) begin
+                    halt <= halt_in;
+                end else begin
+                    lc_on <= 1;
+                    len_counter_int <= load_value;
+                end
             end
         end
 
@@ -53,10 +85,14 @@ module LenCounterUnit (
         if (reset) begin
             if (~is_triangle || cold_reset) begin
                 halt <= 0;
+                halt_rewind <= 0;
             end
             lc_on <= 0;
             len_counter_int <= 0;
             len_counter_next <= 0;
+
+            len_counter_int_rewind <= 0;
+            len_counter_next_rewind <= len_counter_next;
         end
     end
 
@@ -69,7 +105,10 @@ module EnvelopeUnit (
     input  logic [5:0] din,
     input  logic       addr,
     input  logic       write,
-    output logic [3:0] envelope
+    output logic [3:0] envelope,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
 
     logic [3:0] env_count, env_vol;
@@ -77,30 +116,62 @@ module EnvelopeUnit (
 
     assign envelope = env_disabled ? env_vol : env_count;
 
+    // Rewind
+    logic [3:0] env_count_rewind;
+    logic [3:0] env_vol_rewind;
+    logic env_disabled_rewind;
+    // Rewind END
+
     always_ff @(posedge clk) begin : envunit
         logic [3:0] env_div;
         logic env_reload;
         logic env_loop;
         logic env_reset;
 
-        if (env_clk) begin
-            if (~env_reload) begin
-                env_div <= env_div - 1'd1;
-                if (~|env_div) begin
-                    env_div <= env_vol;
-                    if (|env_count || env_loop)
-                        env_count <= env_count - 1'd1;
-                end
-            end else begin
-                env_div <= env_vol;
-                env_count <= 4'hF;
-                env_reload <= 1'b0;
-            end
+        // Rewind
+        logic [3:0] env_div_rewind;
+        logic env_reload_rewind;
+        logic env_loop_rewind;
+        logic env_reset_rewind;
+
+        if(i_rewind_time_to_save) begin
+            env_div_rewind <= env_div;
+            env_reload_rewind <= env_reload;
+            env_loop_rewind <= env_loop;
+            env_reset_rewind <= env_reset;
+            env_count_rewind <= env_count;
+            env_vol_rewind <= env_vol;
+            env_disabled_rewind <= env_disabled;
         end
 
-        if (write) begin
-            if (~addr) {env_loop, env_disabled, env_vol} <= din;
-            if (addr) env_reload <= 1;
+        // Rewind END
+
+        if(i_rewind_time_to_load) begin
+            env_div <= env_div_rewind;
+            env_count <= env_count_rewind;
+            env_reload <= env_reload_rewind;
+            env_loop <= env_loop_rewind;
+            env_disabled <= env_disabled_rewind;
+        end else begin
+            if (env_clk) begin
+                if (~env_reload) begin
+                    env_div <= env_div - 1'd1;
+                    if (~|env_div) begin
+                        env_div <= env_vol;
+                        if (|env_count || env_loop)
+                            env_count <= env_count - 1'd1;
+                    end
+                end else begin
+                    env_div <= env_vol;
+                    env_count <= 4'hF;
+                    env_reload <= 1'b0;
+                end
+            end
+
+            if (write) begin
+                if (~addr) {env_loop, env_disabled, env_vol} <= din;
+                if (addr) env_reload <= 1;
+            end
         end
 
         if (reset) begin
@@ -109,6 +180,12 @@ module EnvelopeUnit (
             env_vol <= 0;
             env_count <= 0;
             env_reload <= 0;
+
+            env_loop_rewind <= 0;
+            env_div_rewind <= 0;
+            env_vol_rewind <= 0;
+            env_count_rewind <= 0;
+            env_reload_rewind <= 0;
         end
     end
 
@@ -133,7 +210,10 @@ module SquareChan (
     input  logic       odd_or_even,
     input  logic       Enabled,
     output logic [3:0] Sample,
-    output logic       IsNonZero
+    output logic       IsNonZero,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
 
     // Register 1
@@ -167,6 +247,73 @@ module SquareChan (
     assign ValidFreq = (MMC5 && allow_us) || ((|Period[10:3]) && (SweepNegate || ~NewSweepPeriod[11]));
     assign Sample = (~lc | ~ValidFreq | ~DutyEnabledUsed) ? 4'd0 : Envelope;
 
+    // Rewind
+    logic [1:0] Duty_rewind;
+    logic SweepEnable_rewind;
+    logic SweepNegate_rewind;
+    logic SweepReset_rewind;
+    logic [2:0] SweepPeriod_rewind;
+    logic SweepDivider_rewind;
+    logic SweepShift_rewind;
+    logic [10:0] Period_rewind;
+    logic [11:0] TimerCtr_rewind;
+    logic [2:0] SeqPos_rewind;
+    logic [10:0] ShiftedPeriod_rewind;
+    logic [10:0] PeriodRhs_rewind;
+    logic [11:0] NewSweepPeriod_rewind;
+    logic ValidFreq_rewind;
+    logic subunit_write_rewind;
+    logic [3:0] Envelope_rewind;
+    logic lc_rewind;
+    logic DutyEnabledUsed_rewind;
+    logic DutyEnabled_rewind;
+
+    always_ff @(posedge clk) begin
+        if((reset)||(cold_reset)) begin
+            Duty_rewind <= 0;
+            SweepEnable_rewind <= 0;
+            SweepNegate_rewind <= 0;
+            SweepReset_rewind <= 0;
+            SweepPeriod_rewind <= 0;
+            SweepDivider_rewind <= 0;
+            SweepShift_rewind <= 0;
+            Period_rewind <= 0;
+            TimerCtr_rewind <= 0;
+            SeqPos_rewind <= 0;
+            ShiftedPeriod_rewind <= 0;
+            PeriodRhs_rewind <= 0;
+            NewSweepPeriod_rewind <= 0;
+            ValidFreq_rewind <= 0;
+            subunit_write_rewind <= 0;
+            Envelope_rewind <= 0;
+            lc_rewind <= 0;
+            DutyEnabledUsed_rewind <= 0;
+            DutyEnabled_rewind <= 0;
+        end else if(i_rewind_time_to_save) begin
+            Duty_rewind <= Duty;
+            SweepEnable_rewind <= SweepEnable;
+            SweepNegate_rewind <= SweepNegate;
+            SweepReset_rewind <= SweepReset;
+            SweepPeriod_rewind <= SweepPeriod;
+            SweepDivider_rewind <= SweepDivider;
+            SweepShift_rewind <= SweepShift;
+            Period_rewind <= Period;
+            TimerCtr_rewind <= TimerCtr;
+            SeqPos_rewind <= SeqPos;
+            ShiftedPeriod_rewind <= ShiftedPeriod;
+            PeriodRhs_rewind <= PeriodRhs;
+            NewSweepPeriod_rewind <= NewSweepPeriod;
+            ValidFreq_rewind <= ValidFreq;
+            subunit_write_rewind <= subunit_write;
+            Envelope_rewind <= Envelope;
+            lc_rewind <= lc;
+            DutyEnabledUsed_rewind <= DutyEnabledUsed;
+            DutyEnabled_rewind <= DutyEnabled;
+        end
+    end
+
+    // Rewind END
+
     LenCounterUnit LenSq (
         .clk            (clk),
         .reset          (reset),
@@ -180,7 +327,10 @@ module SquareChan (
         .is_triangle    (1'b0),
         .write          (subunit_write),
         .enabled        (Enabled),
-        .lc_on          (lc)
+        .lc_on          (lc),
+        // Rewind
+    	.i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     EnvelopeUnit EnvSq (
@@ -190,7 +340,10 @@ module SquareChan (
         .din            (DIN[5:0]),
         .addr           (Addr[0]),
         .write          (subunit_write),
-        .envelope       (Envelope)
+        .envelope       (Envelope),
+        // Rewind
+    	.i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     always_comb begin
@@ -204,47 +357,60 @@ module SquareChan (
     end
 
     always_ff @(posedge clk) begin : sqblock
-        // Unusual to APU design, the square timers are clocked overlapping two phi2. This
-        // means that writes can impact this operation as they happen, however because of the way
-        // the results are presented, we can simply delay it rather than adding complexity for
-        // the same results.
+        if(i_rewind_time_to_load) begin
+            TimerCtr <= TimerCtr_rewind;
+            SeqPos <= SeqPos_rewind;
+            SweepDivider <= SweepDivider_rewind;
+            SweepReset <= SweepReset_rewind;
+            Duty <= Duty_rewind;
+            Period <= Period_rewind;
+            SweepEnable <= SweepEnable_rewind;
+            SweepPeriod <= SweepPeriod_rewind;
+            SweepNegate <= SweepNegate_rewind;
+            SweepShift <= SweepShift_rewind;SeqPos <= SeqPos_rewind;
+        end else begin
+            // Unusual to APU design, the square timers are clocked overlapping two phi2. This
+            // means that writes can impact this operation as they happen, however because of the way
+            // the results are presented, we can simply delay it rather than adding complexity for
+            // the same results.
 
-        if (aclk1_d) begin
-            if (TimerCtr == 0) begin
-                TimerCtr <= {1'b0, Period};
-                SeqPos <= SeqPos - 1'd1;
-            end else begin
-                TimerCtr <= TimerCtr - 1'd1;
-            end
-        end
-
-        // Sweep Unit
-        if (LenCtr_Clock) begin
-            if (SweepDivider == 0) begin
-                SweepDivider <= SweepPeriod;
-                if (SweepEnable && SweepShift != 0 && ValidFreq)
-                    Period <= NewSweepPeriod[10:0];
-            end else begin
-                SweepDivider <= SweepDivider - 1'd1;
-            end
-            if (SweepReset)
-                SweepDivider <= SweepPeriod;
-            SweepReset <= 0;
-        end
-
-        if (write) begin
-            case (Addr)
-                0: Duty <= DIN[7:6];
-                1: if (~MMC5) begin
-                    {SweepEnable, SweepPeriod, SweepNegate, SweepShift} <= DIN;
-                    SweepReset <= 1;
+            if (aclk1_d) begin
+                if (TimerCtr == 0) begin
+                    TimerCtr <= {1'b0, Period};
+                    SeqPos <= SeqPos - 1'd1;
+                end else begin
+                    TimerCtr <= TimerCtr - 1'd1;
                 end
-                2: Period[7:0] <= DIN;
-                3: begin
-                    Period[10:8] <= DIN[2:0];
-                    SeqPos <= 0;
+            end
+
+            // Sweep Unit
+            if (LenCtr_Clock) begin
+                if (SweepDivider == 0) begin
+                    SweepDivider <= SweepPeriod;
+                    if (SweepEnable && SweepShift != 0 && ValidFreq)
+                        Period <= NewSweepPeriod[10:0];
+                end else begin
+                    SweepDivider <= SweepDivider - 1'd1;
                 end
-            endcase
+                if (SweepReset)
+                    SweepDivider <= SweepPeriod;
+                SweepReset <= 0;
+            end
+
+            if (write) begin
+                case (Addr)
+                    0: Duty <= DIN[7:6];
+                    1: if (~MMC5) begin
+                        {SweepEnable, SweepPeriod, SweepNegate, SweepShift} <= DIN;
+                        SweepReset <= 1;
+                    end
+                    2: Period[7:0] <= DIN;
+                    3: begin
+                        Period[10:8] <= DIN[2:0];
+                        SeqPos <= 0;
+                    end
+                endcase
+            end
         end
 
         if (reset) begin
@@ -279,7 +445,10 @@ module TriangleChan (
     input  logic       LinCtr_Clock,
     input  logic       Enabled,
     output logic [3:0] Sample,
-    output logic       IsNonZero
+    output logic       IsNonZero,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
     logic [10:0] Period, applied_period, TimerCtr;
     logic [4:0] SeqPos;
@@ -298,6 +467,30 @@ module TriangleChan (
 
     assign Sample = (applied_period > 1 || allow_us) ? (SeqPos[3:0] ^ {4{~SeqPos[4]}}) : sample_latch;
 
+    // Rewind
+    logic [10:0] Period_rewind, applied_period_rewind, TimerCtr_rewind;
+    logic [4:0] SeqPos_rewind;
+    logic [6:0] LinCtrPeriod_rewind, LinCtrPeriod_1_rewind, LinCtr_rewind;
+    logic LinCtrl_rewind, line_reload_rewind;
+    logic LinCtrZero_rewind;
+    logic lc_rewind;
+    logic LenCtrZero_rewind;
+    logic subunit_write_rewind;
+    logic [3:0] sample_latch_rewind;
+
+    always_ff @(posedge clk) begin
+        if(i_rewind_time_to_save) begin
+            applied_period_rewind <= applied_period;
+            LinCtrPeriod_1_rewind <= LinCtrPeriod_1;
+            LinCtrZero_rewind <= LinCtrZero;
+            lc_rewind <= lc;
+            LenCtrZero_rewind <= LenCtrZero;
+            subunit_write_rewind <= subunit_write;
+        end
+    end
+
+    // Rewind END
+
     LenCounterUnit LenTri (
         .clk            (clk),
         .reset          (reset),
@@ -311,49 +504,79 @@ module TriangleChan (
         .is_triangle    (1'b1),
         .write          (subunit_write),
         .enabled        (Enabled),
-        .lc_on          (lc)
+        .lc_on          (lc),
+        // Rewind
+        .i_rewind_time_to_save(i_rewind_time_to_save),
+        .i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     always_ff @(posedge clk) begin
-        if (phi1) begin
-            if (TimerCtr == 0) begin
-                TimerCtr <= Period;
-                applied_period <= Period;
-                if (IsNonZero & ~LinCtrZero)
-                    SeqPos <= SeqPos + 1'd1;
-            end else begin
-                TimerCtr <= TimerCtr - 1'd1;
+        if(i_rewind_time_to_save) begin
+            Period_rewind <= Period;
+            TimerCtr_rewind <= TimerCtr;
+            SeqPos_rewind <= SeqPos;
+            LinCtrPeriod_rewind <= LinCtrPeriod;
+            LinCtr_rewind <= LinCtr;
+            LinCtrl_rewind <= LinCtrl;
+            line_reload_rewind <= line_reload;
+            sample_latch_rewind <= sample_latch;
+
+        end
+
+        if(i_rewind_time_to_load) begin
+            TimerCtr <= TimerCtr_rewind;
+            applied_period <= applied_period_rewind;
+            SeqPos <= SeqPos_rewind;
+            LinCtrPeriod_1 <= LinCtrPeriod_1_rewind;
+            LinCtr <= LinCtr_rewind;
+            line_reload <= line_reload_rewind;
+        end else begin
+            if (phi1) begin
+                if (TimerCtr == 0) begin
+                    TimerCtr <= Period;
+                    applied_period <= Period;
+                    if (IsNonZero & ~LinCtrZero)
+                        SeqPos <= SeqPos + 1'd1;
+                end else begin
+                    TimerCtr <= TimerCtr - 1'd1;
+                end
             end
-        end
 
-        if (aclk1) begin
-            LinCtrPeriod_1 <= LinCtrPeriod;
-        end
+            if (aclk1) begin
+                LinCtrPeriod_1 <= LinCtrPeriod;
+            end
 
-        if (LinCtr_Clock) begin
-            if (line_reload)
-                LinCtr <= LinCtrPeriod_1;
-            else if (!LinCtrZero)
-                LinCtr <= LinCtr - 1'd1;
+            if (LinCtr_Clock) begin
+                if (line_reload)
+                    LinCtr <= LinCtrPeriod_1;
+                else if (!LinCtrZero)
+                    LinCtr <= LinCtr - 1'd1;
 
-            if (!LinCtrl)
-                line_reload <= 0;
-        end
+                if (!LinCtrl)
+                    line_reload <= 0;
+            end
 
-        if (write) begin
-            case (Addr)
-                0: begin
-                    LinCtrl <= DIN[7];
-                    LinCtrPeriod <= DIN[6:0];
-                end
-                2: begin
-                    Period[7:0] <= DIN;
-                end
-                3: begin
-                    Period[10:8] <= DIN[2:0];
-                    line_reload <= 1;
-                end
-            endcase
+            if (write) begin
+                case (Addr)
+                    0: begin
+                        LinCtrl <= DIN[7];
+                        LinCtrPeriod <= DIN[6:0];
+                    end
+                    2: begin
+                        Period[7:0] <= DIN;
+                    end
+                    3: begin
+                        Period[10:8] <= DIN[2:0];
+                        line_reload <= 1;
+                    end
+                endcase
+            end
+
+            if(i_rewind_time_to_load)
+                sample_latch <= sample_latch_rewind;
+            else if (applied_period > 1) 
+                sample_latch <= Sample;
+
         end
 
         if (reset) begin
@@ -365,11 +588,17 @@ module TriangleChan (
             LinCtr <= 0;
             LinCtrl <= 0;
             line_reload <= 0;
+
+            sample_latch_rewind <= 4'hF;
+            Period_rewind <= 0;
+            TimerCtr_rewind <= 0;
+            SeqPos_rewind <= 0;
+            LinCtrPeriod_rewind <= 0;
+            LinCtr_rewind <= 0;
+            LinCtrl_rewind <= 0;
+            line_reload_rewind <= 0;
         end
-
-        if (applied_period > 1) sample_latch <= Sample;
     end
-
 endmodule
 
 module TriangleChan_enhanced (
@@ -505,7 +734,10 @@ module NoiseChan (
     input  logic       Env_Clock,
     input  logic       Enabled,
     output logic [3:0] Sample,
-    output logic       IsNonZero
+    output logic       IsNonZero,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
     logic ShortMode;
     logic [14:0] Shift;
@@ -534,7 +766,10 @@ module NoiseChan (
         .is_triangle    (1'b0),
         .write          (subunit_write),
         .enabled        (Enabled),
-        .lc_on          (lc)
+        .lc_on          (lc),
+        // Rewind
+        .i_rewind_time_to_save(i_rewind_time_to_save),
+        .i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     EnvelopeUnit EnvNoi (
@@ -544,7 +779,10 @@ module NoiseChan (
         .din            (DIN[5:0]),
         .addr           (Addr[0]),
         .write          (subunit_write),
-        .envelope       (Envelope)
+        .envelope       (Envelope),
+        // Rewind
+        .i_rewind_time_to_save(i_rewind_time_to_save),
+        .i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     logic [10:0] noise_pal_lut[16];
@@ -566,36 +804,77 @@ module NoiseChan (
 
     logic [10:0] noise_timer;
     logic noise_clock;
+
+    //Rewind
+    logic [10:0] noise_timer_rewind;
+    logic noise_clock_rewind;
+    logic ShortMode_rewind;
+    logic [14:0] Shift_rewind;
+    logic [3:0] Period_rewind;
+    logic [11:0] NoisePeriod_rewind;
+    logic [11:0] TimerCtr_rewind;
+    logic [3:0] Envelope_rewind;
+    logic subunit_write_rewind;
+    logic lc_rewind;
+    //Rewind END
+
     always_ff @(posedge clk) begin
-        if (aclk1_d) begin
-            noise_timer <= {noise_timer[9:0], (noise_timer[10] ^ noise_timer[8]) | ~|noise_timer};
+        if(i_rewind_time_to_save) begin
+            noise_timer_rewind <= noise_timer;
+            noise_clock_rewind <= noise_clock;
+            ShortMode_rewind <= ShortMode;
+            Shift_rewind <= Shift;
+            Period_rewind <= Period;
+            NoisePeriod_rewind <= NoisePeriod;
+            TimerCtr_rewind <= TimerCtr;
+            Envelope_rewind <= Envelope;
+            subunit_write_rewind <= subunit_write;
+            lc_rewind <= lc;
+        end
 
-            if (noise_clock) begin
-                noise_clock <= 0;
-                noise_timer <= PAL ? noise_pal_lut[Period] : noise_ntsc_lut[Period];
-                Shift <= {Shift[13:0], ((Shift[14] ^ (ShortMode ? Shift[8] : Shift[13])) | ~|Shift)};
+        if(i_rewind_time_to_load) begin
+            noise_timer <= noise_timer_rewind;
+            noise_clock <= noise_clock;
+            Shift <= Shift_rewind;
+            ShortMode <= ShortMode_rewind;
+            Period <= Period_rewind;
+        end else begin
+            if (aclk1_d) begin
+                noise_timer <= {noise_timer[9:0], (noise_timer[10] ^ noise_timer[8]) | ~|noise_timer};
+
+                if (noise_clock) begin
+                    noise_clock <= 0;
+                    noise_timer <= PAL ? noise_pal_lut[Period] : noise_ntsc_lut[Period];
+                    Shift <= {Shift[13:0], ((Shift[14] ^ (ShortMode ? Shift[8] : Shift[13])) | ~|Shift)};
+                end
             end
-        end
 
-        if (aclk1) begin
-            if (noise_timer == 'h400)
-                noise_clock <= 1;
-        end
+            if (aclk1) begin
+                if (noise_timer == 'h400)
+                    noise_clock <= 1;
+            end
 
-        if (write && Addr == 2) begin
-            ShortMode <= DIN[7];
-            Period <= DIN[3:0];
+            if (write && Addr == 2) begin
+                ShortMode <= DIN[7];
+                Period <= DIN[3:0];
+            end
         end
 
         if (reset) begin
             if (|noise_timer) noise_timer <= (PAL ? noise_pal_lut[0] : noise_ntsc_lut[0]);
+            if (|noise_timer) noise_timer_rewind <= (PAL ? noise_pal_lut[0] : noise_ntsc_lut[0]);
             ShortMode <= 0;
             Shift <= 0;
             Period <= 0;
+            ShortMode_rewind <= 0;
+            Shift_rewind <= 0;
+            Period_rewind <= 0;
         end
 
-        if (cold_reset)
+        if (cold_reset) begin
             noise_timer <= 0;
+            noise_timer_rewind <= 0;
+        end
     end
 endmodule
 
@@ -616,7 +895,10 @@ module DmcChan (
     output logic        irq,
     output logic  [6:0] Sample,
     output logic        dma_req,      // 1 when DMC wants DMA
-    output logic        enable
+    output logic        enable,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
     logic irq_enable;
     logic loop;                 // Looping enabled
@@ -654,96 +936,159 @@ module DmcChan (
     assign dma_req = ~have_buffer & enable & enable_3;
     logic dmc_clock;
 
+    // Rewind
+    logic irq_enable_rewind;
+    logic loop_rewind;
+    logic [3:0] frequency_rewind;
+    logic [7:0] sample_address_rewind;
+    logic [7:0] sample_length_rewind;
+    logic [11:0] bytes_remaining_rewind;
+    logic [7:0] sample_buffer_rewind;
+    logic [8:0] dmc_lsfr_rewind;
+    logic [7:0] dmc_volume_rewind;
+    logic [7:0] dmc_volume_next_rewind;
+    logic dmc_silence_rewind;
+    logic have_buffer_rewind;
+    logic [7:0] sample_shift_rewind;
+    logic [2:0] dmc_bits_rewind;
+    logic enable_1_rewind;
+    logic enable_2_rewind;
+    logic enable_3_rewind;
+    logic reload_next_rewind;
+    // Rewind END
+
 
     logic reload_next;
     always_ff @(posedge clk) begin
-        dma_address[15] <= 1;
-        if (write) begin
-            case (ain)
-                0: begin  // $4010
-                        irq_enable <= DIN[7];
-                        loop <= DIN[6];
-                        frequency <= DIN[3:0];
-                        if (~DIN[7]) irq <= 0;
-                    end
-                1: begin  // $4011 Applies immediately, can be overwritten before aclk1
-                        dmc_volume <= {MMC5 & DIN[7], DIN[6:0]};
-                    end
-                2: begin  // $4012
-                        sample_address <= MMC5 ? 8'h00 : DIN[7:0];
-                    end
-                3: begin  // $4013
-                        sample_length <= MMC5 ? 8'h00 : DIN[7:0];
-                    end
-                5: begin // $4015
-                        irq <= 0;
-                        enable <= DIN[4];
+        if(i_rewind_time_to_save) begin
+            dmc_lsfr_rewind <= dmc_lsfr;
+            loop_rewind <= loop;
+            frequency_rewind <= frequency;
+            irq_enable_rewind <= irq_enable;
+            dmc_volume_rewind <= dmc_volume;
+            dmc_volume_next_rewind <= dmc_volume_next;
+            sample_address_rewind <= sample_address;
+            sample_length_rewind <= sample_length;
+            dmc_volume_rewind <= dmc_volume;
+            dmc_volume_next_rewind <= dmc_volume_next;
+            sample_shift_rewind <= sample_shift;
+            dmc_lsfr_rewind <= dmc_lsfr;
+            bytes_remaining_rewind <= bytes_remaining;
+            dmc_bits_rewind <= dmc_bits;
+            sample_buffer_rewind <= sample_buffer;
+            have_buffer_rewind <= have_buffer;
+            enable_1_rewind <= enable_1;
+            enable_2_rewind <= enable_2;
+            enable_3_rewind <= enable_3;
+            reload_next_rewind <= reload_next;
+        end
 
-                        if (DIN[4] && ~enable) begin
-                            dma_address[14:0] <= {1'b1, sample_address[7:0], 6'h00};
-                            bytes_remaining <= {sample_length, 4'h0};
+        if(i_rewind_time_to_load) begin
+            irq_enable <= irq_enable_rewind;
+            loop <= loop_rewind;
+            frequency <= frequency_rewind;
+            dmc_volume <= dmc_volume_rewind;
+            sample_address <= sample_address_rewind;
+            sample_length <= sample_length_rewind;
+            bytes_remaining <= bytes_remaining_rewind;
+            enable_1 <= enable_1_rewind;
+            enable_2 <= enable_2_rewind;
+            enable_3 <= enable_3_rewind;
+            dmc_lsfr <= dmc_lsfr_rewind;
+            sample_shift <= sample_shift_rewind;
+            dmc_bits <= dmc_bits_rewind;
+            dmc_silence <= dmc_silence_rewind;
+            have_buffer <= have_buffer_rewind;
+            dmc_volume_next <= dmc_volume_next_rewind;
+        end else begin
+            dma_address[15] <= 1;
+            if (write) begin
+                case (ain)
+                    0: begin  // $4010
+                            irq_enable <= DIN[7];
+                            loop <= DIN[6];
+                            frequency <= DIN[3:0];
+                            if (~DIN[7]) irq <= 0;
+                        end
+                    1: begin  // $4011 Applies immediately, can be overwritten before aclk1
+                            dmc_volume <= {MMC5 & DIN[7], DIN[6:0]};
+                        end
+                    2: begin  // $4012
+                            sample_address <= MMC5 ? 8'h00 : DIN[7:0];
+                        end
+                    3: begin  // $4013
+                            sample_length <= MMC5 ? 8'h00 : DIN[7:0];
+                        end
+                    5: begin // $4015
+                            irq <= 0;
+                            enable <= DIN[4];
+
+                            if (DIN[4] && ~enable) begin
+                                dma_address[14:0] <= {1'b1, sample_address[7:0], 6'h00};
+                                bytes_remaining <= {sample_length, 4'h0};
+                            end
+                        end
+                endcase
+            end
+
+            if (aclk1_d) begin
+                enable_1 <= enable;
+                enable_2 <= enable_1;
+                dmc_lsfr <= {dmc_lsfr[7:0], (dmc_lsfr[8] ^ dmc_lsfr[4]) | ~|dmc_lsfr};
+
+                if (dmc_clock) begin
+                    dmc_clock <= 0;
+                    dmc_lsfr <= PAL ? pal_pitch_lut[frequency] : ntsc_pitch_lut[frequency];
+                    sample_shift <= {1'b0, sample_shift[7:1]};
+                    dmc_bits <= dmc_bits + 1'd1;
+
+                    if (&dmc_bits) begin
+                        dmc_silence <= ~have_buffer;
+                        sample_shift <= sample_buffer;
+                        have_buffer <= 0;
+                    end
+
+                    if (~dmc_silence) begin
+                        if (~sample_shift[0]) begin
+                            if (|dmc_volume_next[6:1])
+                                dmc_volume[6:1] <= dmc_volume_next[6:1] - 1'd1;
+                        end else begin
+                            if(~&dmc_volume_next[6:1])
+                                dmc_volume[6:1] <= dmc_volume_next[6:1] + 1'd1;
                         end
                     end
-            endcase
-        end
-
-        if (aclk1_d) begin
-            enable_1 <= enable;
-            enable_2 <= enable_1;
-            dmc_lsfr <= {dmc_lsfr[7:0], (dmc_lsfr[8] ^ dmc_lsfr[4]) | ~|dmc_lsfr};
-
-            if (dmc_clock) begin
-                dmc_clock <= 0;
-                dmc_lsfr <= PAL ? pal_pitch_lut[frequency] : ntsc_pitch_lut[frequency];
-                sample_shift <= {1'b0, sample_shift[7:1]};
-                dmc_bits <= dmc_bits + 1'd1;
-
-                if (&dmc_bits) begin
-                    dmc_silence <= ~have_buffer;
-                    sample_shift <= sample_buffer;
-                    have_buffer <= 0;
                 end
 
-                if (~dmc_silence) begin
-                    if (~sample_shift[0]) begin
-                        if (|dmc_volume_next[6:1])
-                            dmc_volume[6:1] <= dmc_volume_next[6:1] - 1'd1;
-                    end else begin
-                        if(~&dmc_volume_next[6:1])
-                            dmc_volume[6:1] <= dmc_volume_next[6:1] + 1'd1;
+                // The data is technically clocked at phi2, but because of our implementation, to
+                // ensure the right data is latched, we do it on the falling edge of phi2.
+                if (dma_ack) begin
+                    dma_address[14:0] <= dma_address[14:0] + 1'd1;
+                    have_buffer <= 1;
+                    sample_buffer <= dma_data;
+
+                    if (|bytes_remaining)
+                        bytes_remaining <= bytes_remaining - 1'd1;
+                    else begin
+                        dma_address[14:0] <= {1'b1, sample_address[7:0], 6'h0};
+                        bytes_remaining <= {sample_length, 4'h0};
+                        enable <= loop;
+                        if (~loop & irq_enable)
+                            irq <= 1;
                     end
                 end
             end
 
-            // The data is technically clocked at phi2, but because of our implementation, to
-            // ensure the right data is latched, we do it on the falling edge of phi2.
-            if (dma_ack) begin
-                dma_address[14:0] <= dma_address[14:0] + 1'd1;
-                have_buffer <= 1;
-                sample_buffer <= dma_data;
+            // Volume adjustment is done on aclk1. Technically, the value written to 4011 is immediately
+            // applied, but won't "stick" if it conflicts with a lsfr clocked do-adjust.
+            if (aclk1) begin
+                enable_1 <= enable;
+                enable_3 <= enable_2;
 
-                if (|bytes_remaining)
-                    bytes_remaining <= bytes_remaining - 1'd1;
-                else begin
-                    dma_address[14:0] <= {1'b1, sample_address[7:0], 6'h0};
-                    bytes_remaining <= {sample_length, 4'h0};
-                    enable <= loop;
-                    if (~loop & irq_enable)
-                        irq <= 1;
+                dmc_volume_next <= dmc_volume;
+
+                if (dmc_lsfr == 9'h100) begin
+                    dmc_clock <= 1;
                 end
-            end
-        end
-
-        // Volume adjustment is done on aclk1. Technically, the value written to 4011 is immediately
-        // applied, but won't "stick" if it conflicts with a lsfr clocked do-adjust.
-        if (aclk1) begin
-            enable_1 <= enable;
-            enable_3 <= enable_2;
-
-            dmc_volume_next <= dmc_volume;
-
-            if (dmc_lsfr == 9'h100) begin
-                dmc_clock <= 1;
             end
         end
 
@@ -762,6 +1107,20 @@ module DmcChan (
             enable_2 <= 0;
             enable_3 <= 0;
             dma_address[14:0] <= 15'h0000;
+
+            dmc_volume_rewind <= {7'h0, dmc_volume_rewind[0]};
+            dmc_volume_next_rewind <= {7'h0, dmc_volume_rewind[0]};
+            sample_shift_rewind <= 8'h0;
+            if (|dmc_lsfr_rewind) 
+                dmc_lsfr_rewind <= (PAL ? pal_pitch_lut[0] : ntsc_pitch_lut[0]);
+            bytes_remaining_rewind <= 0;
+            dmc_bits_rewind <= 0;
+            sample_buffer_rewind <= 0;
+            have_buffer_rewind <= 0;
+            enable_1_rewind <= 0;
+            enable_2_rewind <= 0;
+            enable_3_rewind <= 0;
+            reload_next_rewind <= 0;
         end
 
         if (cold_reset) begin
@@ -773,6 +1132,15 @@ module DmcChan (
             dmc_volume_next <= 0;
             sample_address <= 0;
             sample_length <= 0;
+
+            dmc_lsfr_rewind <= 0;
+            loop_rewind <= 0;
+            frequency_rewind <= 0;
+            irq_enable_rewind <= 0;
+            dmc_volume_rewind <= 0;
+            dmc_volume_next_rewind <= 0;
+            sample_address_rewind <= 0;
+            sample_length_rewind <= 0;
         end
 
     end
@@ -795,7 +1163,10 @@ module FrameCtr (
     output logic irq,
     output logic irq_flag,
     output logic frame_half,
-    output logic frame_quarter
+    output logic frame_quarter,
+    // Rewind
+    input  wire        i_rewind_time_to_save,
+    input  wire        i_rewind_time_to_load
 );
 
     // NTSC -- Confirmed
@@ -851,35 +1222,81 @@ module FrameCtr (
     assign frame_half = (frm_b | frm_d | frm_e | (w4017_2 & seq_mode));
     assign frame_quarter = (frm_a | frm_b | frm_c | frm_d | frm_e | (w4017_2 & seq_mode));
 
-    always_ff @(posedge clk) begin : apu_block
+    // Rewind
+        logic frame_reset;
+        logic frame_interrupt_buffer_rewind;
+        logic frame_int_disabled_rewind;
+        logic FrameInterrupt_rewind;
+        logic frame_irq, set_irq_rewind;
+        logic FrameSeqMode_2_rewind;
+        logic frame_reset_2_rewind;
+        logic w4017_1_rewind;
+        logic w4017_2_rewind;
+        logic [14:0] frame_rewind;
+        logic DisableFrameInterrupt_rewind;
+        logic FrameSeqMode_rewind;
+        logic seq_mode_rewind;
+        logic frame_irq_rewind;
 
-        if (aclk1) begin
-            frame <= frame_reset_2 ? 15'h7FFF : {frame[13:0], ((frame[14] ^ frame[13]) | ~|frame)};
-            w4017_2 <= w4017_1;
-            w4017_1 <= 0;
-            FrameSeqMode_2 <= FrameSeqMode;
-            frame_reset_2 <= 0;
+    // Rewind END
+
+    always_ff @(posedge clk) begin : apu_block
+        if(i_rewind_time_to_save) begin
+            frame_rewind <= frame;
+            frame_interrupt_buffer_rewind <= frame_interrupt_buffer;
+            frame_int_disabled_rewind <= frame_int_disabled;
+            FrameInterrupt_rewind <= FrameInterrupt;
+            frame_irq_rewind <= frame_irq;
+            set_irq_rewind <= set_irq;
+            FrameSeqMode_2_rewind <= FrameSeqMode_2;
+            frame_reset_2_rewind <= frame_reset_2;
+            w4017_1_rewind <= w4017_1;
+            w4017_2_rewind <= w4017_2;
+            frame_rewind <= frame;
+            DisableFrameInterrupt_rewind <= DisableFrameInterrupt;
+            FrameSeqMode_rewind <= FrameSeqMode;
+            seq_mode_rewind <= seq_mode;
         end
 
-        if (aclk2 & frame_reset)
-            frame_reset_2 <= 1;
+        if(i_rewind_time_to_load) begin
+            frame <= frame_rewind;
+            w4017_1 <= w4017_1_rewind;
+            w4017_2 <= w4017_2_rewind;
+            FrameSeqMode_2 <= FrameSeqMode_2_rewind;
+            frame_reset_2 <= frame_reset_2_rewind;
+            FrameInterrupt <= FrameInterrupt_rewind;
+            frame_interrupt_buffer <= frame_interrupt_buffer_rewind;
+            FrameSeqMode <= FrameSeqMode_rewind;
+            DisableFrameInterrupt <= DisableFrameInterrupt_rewind;
+        end else begin
+            if (aclk1) begin
+                frame <= frame_reset_2 ? 15'h7FFF : {frame[13:0], ((frame[14] ^ frame[13]) | ~|frame)};
+                w4017_2 <= w4017_1;
+                w4017_1 <= 0;
+                FrameSeqMode_2 <= FrameSeqMode;
+                frame_reset_2 <= 0;
+            end
 
-        // Continously update the Frame IRQ state and read buffer
-        if (set_irq & ~frame_int_disabled) begin
-            FrameInterrupt <= 1;
-            frame_interrupt_buffer <= 1;
-        end else if (addr == 2'h1 && read)
-            FrameInterrupt <= 0;
-        else
-            frame_interrupt_buffer <= FrameInterrupt;
+            if (aclk2 & frame_reset)
+                frame_reset_2 <= 1;
 
-        if (frame_int_disabled)
-            FrameInterrupt <= 0;
+            // Continously update the Frame IRQ state and read buffer
+            if (set_irq & ~frame_int_disabled) begin
+                FrameInterrupt <= 1;
+                frame_interrupt_buffer <= 1;
+            end else if (addr == 2'h1 && read)
+                FrameInterrupt <= 0;
+            else
+                frame_interrupt_buffer <= FrameInterrupt;
 
-        if (write_ce && addr == 3 && ~MMC5) begin  // Register $4017
-            FrameSeqMode <= din[7];
-            DisableFrameInterrupt <= din[6];
-            w4017_1 <= 1;
+            if (frame_int_disabled)
+                FrameInterrupt <= 0;
+
+            if (write_ce && addr == 3 && ~MMC5) begin  // Register $4017
+                FrameSeqMode <= din[7];
+                DisableFrameInterrupt <= din[6];
+                w4017_1 <= 1;
+            end
         end
 
         if (reset) begin
@@ -890,7 +1307,16 @@ module FrameCtr (
             DisableFrameInterrupt <= 0;
             if (cold_reset) FrameSeqMode <= 0; // Don't reset this on warm reset
             frame <= 15'h7FFF;
+
+            FrameInterrupt_rewind <= 0;
+            frame_interrupt_buffer_rewind <= 0;
+            w4017_1_rewind <= 0;
+            w4017_2_rewind <= 0;
+            DisableFrameInterrupt_rewind <= 0;
+            frame_rewind <= 15'h7FFF;
         end
+
+        if (cold_reset) FrameSeqMode_rewind <= 0; // Don't reset this on warm reset
     end
 
 endmodule
@@ -919,6 +1345,9 @@ module APU (
     output logic        IRQ,            // IRQ asserted high == asserted
     // Enhanced APU
     input  logic        apu_enhanced_ce
+    // Rewind
+	input		 i_rewind_time_to_save,
+	input        i_rewind_time_to_load
 );
 
     logic [7:0] len_counter_lut[32];
@@ -982,20 +1411,125 @@ module APU (
     logic [4:0] enabled_buffer, enabled_buffer_1;
     assign Enabled = aclk1 ? enabled_buffer : enabled_buffer_1;
 
+    // Rewind
+    logic [7:0] lc_load_rewind;
+    logic read_rewind;
+    logic read_old_rewind;
+    logic write_rewind;
+    logic write_ce_rewind;
+    logic write_old_rewind;
+    logic phi2_old_rewind;
+    logic phi2_ce_rewind;
+    logic aclk1_rewind;
+    logic aclk2_rewind;
+    logic aclk1_delayed_rewind;
+    logic phi1_rewind;
+    logic [4:0] Enabled_rewind;
+    logic [3:0] Sq1Sample_rewind;
+    logic Sq2Sample_rewind;
+    logic TriSample_rewind;
+    logic NoiSample_rewind;
+    logic [6:0] DmcSample_rewind;
+    logic DmcIrq_rewind;
+    logic IsDmcActive_rewind;
+    logic irq_flag_rewind;
+    logic frame_irq_rewind;
+    logic Sq1NonZero_rewind;
+    logic Sq2NonZero_rewind;
+    logic TriNonZero_rewind;
+    logic NoiNonZero_rewind;
+    logic ClkE_rewind;
+    logic ClkL_rewind;
+    logic [4:0] enabled_buffer_rewind;
+    logic enabled_buffer_1_rewind;
+
     always_ff @(posedge clk) begin
-        phi2_old <= PHI2;
-
-        if (aclk1) begin
-            enabled_buffer_1 <= enabled_buffer;
+        if(reset) begin
+            lc_load_rewind <= 0;
+            read_rewind <=0;
+            read_old_rewind <= 0;
+            write_rewind <= 0;
+            write_ce_rewind <= 0;
+            write_old_rewind <= 0;
+            phi2_old_rewind <= 0;
+            phi2_ce_rewind <= 0;
+            aclk1_rewind <= 0;
+            aclk2_rewind <= 0;
+            aclk1_delayed_rewind <= 0;
+            phi1_rewind <=0;
+            Enabled_rewind <= 0;
+            Sq1Sample_rewind <= 0;
+            Sq2Sample_rewind <= 0;
+            TriSample_rewind <= 0;
+            NoiSample_rewind <= 0;
+            DmcSample_rewind <= 0;
+            DmcIrq_rewind <= 0;
+            IsDmcActive_rewind <= 0;
+            irq_flag_rewind <= 0;
+            frame_irq_rewind <= 0;
+            Sq1NonZero_rewind <= 0;
+            Sq2NonZero_rewind <= 0;
+            TriNonZero_rewind <= 0;
+            NoiNonZero_rewind <= 0;
+            ClkE_rewind <= 0;
+            ClkL_rewind <= 0;
+            enabled_buffer_rewind <= 0;
+            enabled_buffer_1_rewind <= 0;
+        end else if(i_rewind_time_to_save) begin
+            lc_load_rewind <= lc_load;
+            read_rewind <= read;
+            read_old_rewind <= read_old;
+            write_rewind <= write;
+            write_ce_rewind <= write_ce;
+            write_old_rewind <= write_old;
+            phi2_old_rewind <= phi2_old;
+            phi2_ce_rewind <= phi2_ce;
+            aclk1_rewind <= aclk1;
+            aclk2_rewind <= aclk2;
+            aclk1_delayed_rewind <= aclk1_delayed;
+            phi1_rewind <= phi1;
+            Enabled_rewind <= Enabled;
+            Sq1Sample_rewind <= Sq1Sample;
+            Sq2Sample_rewind <= Sq2Sample;
+            TriSample_rewind <= TriSample;
+            NoiSample_rewind <= NoiSample;
+            DmcSample_rewind <= DmcSample;
+            DmcIrq_rewind <= DmcIrq;
+            IsDmcActive_rewind <= IsDmcActive;
+            irq_flag_rewind <= irq_flag;
+            frame_irq_rewind <= frame_irq;
+            Sq1NonZero_rewind <= Sq1NonZero;
+            Sq2NonZero_rewind <= Sq2NonZero;
+            TriNonZero_rewind <= TriNonZero;
+            NoiNonZero_rewind <= NoiNonZero;
+            ClkE_rewind <= ClkE;
+            ClkL_rewind <= ClkL;
+            enabled_buffer_rewind <= enabled_buffer;
+            enabled_buffer_1_rewind <= enabled_buffer_1;
         end
+    end
 
-        if (ApuMW5 && write && ADDR[1:0] == 1) begin
-            enabled_buffer <= DIN[4:0]; // Register $4015
-        end
+    // Rewind END
 
-        if (reset) begin
-            enabled_buffer <= 0;
-            enabled_buffer_1 <= 0;
+    always_ff @(posedge clk) begin
+        if(i_rewind_time_to_load) begin
+            phi2_old <= phi2_old_rewind;
+            enabled_buffer_1 <= enabled_buffer_1_rewind;
+        end else begin
+            phi2_old <= PHI2;
+
+            if (aclk1) begin
+                enabled_buffer_1 <= enabled_buffer;
+            end
+
+            if (ApuMW5 && write && ADDR[1:0] == 1) begin
+                enabled_buffer <= DIN[4:0]; // Register $4015
+            end
+
+            if (reset) begin
+                enabled_buffer <= 0;
+                enabled_buffer_1 <= 0;
+            end
         end
     end
 
@@ -1028,7 +1562,10 @@ module APU (
         .odd_or_even  (odd_or_even),
         .Enabled      (Enabled[0]),
         .Sample       (Sq1Sample),
-        .IsNonZero    (Sq1NonZero)
+        .IsNonZero    (Sq1NonZero),
+        // Rewind
+	    .i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     SquareChan Squ2 (
@@ -1050,7 +1587,10 @@ module APU (
         .odd_or_even  (odd_or_even),
         .Enabled      (Enabled[1]),
         .Sample       (Sq2Sample),
-        .IsNonZero    (Sq2NonZero)
+        .IsNonZero    (Sq2NonZero),
+        // Rewind
+    	.i_rewind_time_to_save(i_rewind_time_to_save),
+	    .i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     TriangleChan Tri (
@@ -1069,7 +1609,10 @@ module APU (
         .LinCtr_Clock (ClkE),
         .Enabled      (Enabled[2]),
         .Sample       (TriSample),
-        .IsNonZero    (TriNonZero)
+        .IsNonZero    (TriNonZero),
+        // Rewind
+	    .i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     TriangleChan_enhanced Tri_enhanced (
@@ -1107,7 +1650,10 @@ module APU (
         .Env_Clock    (ClkE),
         .Enabled      (Enabled[3]),
         .Sample       (NoiSample),
-        .IsNonZero    (NoiNonZero)
+        .IsNonZero    (NoiNonZero),
+        // Rewind
+	    .i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     DmcChan Dmc (
@@ -1127,7 +1673,10 @@ module APU (
         .irq         (DmcIrq),
         .Sample      (DmcSample),
         .dma_req     (DmaReq),
-        .enable      (IsDmcActive)
+        .enable      (IsDmcActive),
+        // Rewind
+	    .i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
     APUMixer mixer (
@@ -1158,7 +1707,10 @@ module APU (
         .irq          (frame_irq),
         .irq_flag     (irq_flag),
         .frame_half   (frame_half),
-        .frame_quarter(frame_quarter)
+        .frame_quarter(frame_quarter),
+        // Rewind
+	    .i_rewind_time_to_save(i_rewind_time_to_save),
+    	.i_rewind_time_to_load(i_rewind_time_to_load)
     );
 
 endmodule

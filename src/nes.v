@@ -34,7 +34,10 @@ module DmaController(
 	output read,                   // 1 = read, 0 = write
 	output [7:0] data_to_ram,      // Value to write to RAM
 	output dmc_ack,                // ACK the DMC DMA
-	output pause_cpu               // CPU is pausede
+	output pause_cpu,              // CPU is pausede
+	// Rewind
+	input  i_rewind_time_to_save,
+	input  i_rewind_time_to_load
 );
 
 // XXX: OAM DMA appears to be 1 cycle too short
@@ -44,22 +47,50 @@ reg [7:0] sprite_dma_lastval;
 reg [15:0] sprite_dma_addr;     // sprite dma source addr
 wire [8:0] new_sprite_dma_addr = sprite_dma_addr[7:0] + 8'h01;
 
-always @(posedge clk) if (reset) begin
-	dmc_state <= 0;
-	spr_state <= 0;
-	sprite_dma_lastval <= 0;
-	sprite_dma_addr <= 0;
-end else if (ce) begin
-	if (dmc_state == 0 && dmc_trigger && cpu_read && !odd_cycle) dmc_state <= 1;
-	if (dmc_state == 1 && !odd_cycle) dmc_state <= 0;
+// Rewind
+reg dmc_state_rewind;
+reg spr_state_rewind;
+reg sprite_dma_lastval_rewind;
+reg sprite_dma_addr_rewind;
 
-	if (sprite_trigger) begin sprite_dma_addr <= {data_from_cpu, 8'h00}; spr_state <= 1; end
-	if (spr_state == 1 && cpu_read && odd_cycle) spr_state <= 3;
-	if (spr_state[1] && !odd_cycle && dmc_state == 1) spr_state <= 1;
-	if (spr_state[1] && odd_cycle) sprite_dma_addr[7:0] <= new_sprite_dma_addr[7:0];
-	if (spr_state[1] && odd_cycle && new_sprite_dma_addr[8]) spr_state <= 0;
-	if (spr_state[1]) sprite_dma_lastval <= data_from_ram;
+always @(posedge clk) begin
+	if(reset) begin
+		dmc_state_rewind <= 0;
+		spr_state_rewind  <= 0;
+		sprite_dma_lastval_rewind <= 0;
+		sprite_dma_addr_rewind <= 0;
+	end else if(i_rewind_time_to_save) begin
+		dmc_state_rewind <= dmc_state;
+		spr_state_rewind  <= spr_state;
+		sprite_dma_lastval_rewind <= sprite_dma_lastval;
+		sprite_dma_addr_rewind <= sprite_dma_addr;
+	end
 end
+
+always @(posedge clk) 
+	if (reset) begin
+		dmc_state <= 0;
+		spr_state <= 0;
+		sprite_dma_lastval <= 0;
+		sprite_dma_addr <= 0;
+	end else if(i_rewind_time_to_load) begin
+		dmc_state <= dmc_state_rewind;
+		spr_state <= spr_state_rewind;
+		sprite_dma_lastval <= sprite_dma_lastval_rewind;
+		sprite_dma_addr <= sprite_dma_addr_rewind;
+	end else begin
+		if(ce) begin
+			if (dmc_state == 0 && dmc_trigger && cpu_read && !odd_cycle) dmc_state <= 1;
+			if (dmc_state == 1 && !odd_cycle) dmc_state <= 0;
+
+			if (sprite_trigger) begin sprite_dma_addr <= {data_from_cpu, 8'h00}; spr_state <= 1; end
+			if (spr_state == 1 && cpu_read && odd_cycle) spr_state <= 3;
+			if (spr_state[1] && !odd_cycle && dmc_state == 1) spr_state <= 1;
+			if (spr_state[1] && odd_cycle) sprite_dma_addr[7:0] <= new_sprite_dma_addr[7:0];
+			if (spr_state[1] && odd_cycle && new_sprite_dma_addr[8]) spr_state <= 0;
+			if (spr_state[1]) sprite_dma_lastval <= data_from_ram;
+		end
+	end
 
 assign pause_cpu = (spr_state[0] || dmc_trigger);
 assign dmc_ack   = (dmc_state == 1 && !odd_cycle);
@@ -121,6 +152,9 @@ module NES(
 	output        save_written,
 	// Enhanced APU
 	input 		  i_APU_enhancements_ce
+	// Rewind
+	input		 i_rewind_enabled,
+	input        i_rewind_time_to_load
 );
 
 
@@ -206,51 +240,134 @@ reg [2:0] cpu_tick_count;
 
 wire skip_ppu_cycle = (cpu_tick_count == 4) && (ppu_tick == 0);
 
+// Rewind
+reg odd_or_even_rewind = 1;
+reg [4:0] div_cpu_rewind = 5'd1;
+reg [2:0] div_ppu_rewind = 3'd1;
+reg [1:0] div_sys_rewind = 2'd0;
+reg freeze_clocks_rewind = 0;
+reg [4:0] faux_pixel_cnt_rewind;
+reg [1:0] ppu_tick_rewind = 0;
+reg [1:0] sys_type_rewind;
+reg [1:0] last_sys_type_rewind;
+reg [2:0] cpu_tick_count_rewind;
+
+parameter TANG_CPU_CLOCK_NTSC = 27_000_000;   // [Hz]
+parameter NES_CPU_CLOCK_NTSC = 1_789_773;     // [Hz]
+parameter REWIND_CLOCK_COUNT_5S = TANG_CPU_CLOCK_NTSC * 5;    // 135_000_000 [Hz]
+parameter REWIND_CLOCK_COUNT_10S = TANG_CPU_CLOCK_NTSC * 10;  // 270_000_000 [Hz]
+parameter REWIND_CLOCK_COUNT_15S = TANG_CPU_CLOCK_NTSC * 15;  // 405_000_000 [Hz]
+
+reg[27:0] rewind_clk_counter;
+
+wire rewind_time_to_save;
+wire rewind_time_to_load;
+
+assign rewind_time_to_save = (i_rewind_enabled)&&(rewind_clk_counter == TANG_CPU_CLOCK_NTSC);
+assign rewind_time_to_load = (i_rewind_enabled)&&(i_rewind_time_to_load);
+
 always @(posedge clk) begin
-	if (~freeze_clocks | ~(div_ppu == (div_ppu_n - 1'b1))) begin
-		if (~skip_ppu_cycle)
-			div_cpu <= cpu_ce || (ppu_ce && div_cpu > div_cpu_n) ? 1'b1 : div_cpu + 1'b1;
+	if((reset_nes)||(cold_reset)) begin
+		rewind_clk_counter <= 0;
+	end else begin
+		if(rewind_clk_counter == REWIND_CLOCK_COUNT_5S) begin
+			rewind_clk_counter <= 0;
+		end else begin
+			rewind_clk_counter <= rewind_clk_counter + 1;
+		end
+	end
+end
 
-		div_ppu <= ppu_ce ? 1'b1 : div_ppu + 1'b1;
+always @(posedge clk) begin
+    if(rewind_time_to_save) begin
+			// Save state
+			// odd_or_even_rewind <= odd_or_even;
+			div_cpu_rewind <= div_cpu;
+			div_ppu_rewind <= div_ppu;
+			div_sys_rewind <= div_sys;
+			freeze_clocks_rewind <= freeze_clocks;
+			ppu_tick_rewind <= ppu_tick;
+			sys_type_rewind <= sys_type;
+	end
+end
 
-		// reset the ticker on the first ppu tick at or after a cpu tick.
-		if (cpu_ce)
-			ppu_tick <= 0;
-		else if (ppu_ce)
-			ppu_tick <= ppu_tick + 1'b1;
+// Rewind END
+
+always @(posedge clk) begin
+	if(i_rewind_time_to_load) begin
+		freeze_clocks <= freeze_clocks_rewind;
+		div_ppu <= div_ppu_rewind;
+		ppu_tick <= ppu_tick_rewind;
+	end else begin
+		if (~freeze_clocks | ~(div_ppu == (div_ppu_n - 1'b1))) begin
+			if (~skip_ppu_cycle)
+				div_cpu <= cpu_ce || (ppu_ce && div_cpu > div_cpu_n) ? 1'b1 : div_cpu + 1'b1;
+
+			div_ppu <= ppu_ce ? 1'b1 : div_ppu + 1'b1;
+
+			// reset the ticker on the first ppu tick at or after a cpu tick.
+			if(rewind_time_to_load) begin
+				ppu_tick <= ppu_tick_rewind;
+			end else begin
+				if (cpu_ce)
+					ppu_tick <= 0;
+				else if (ppu_ce)
+					ppu_tick <= ppu_tick + 1'b1;
+			end
+		end
 	end
 
 	// Add one extra PPU tick every 5 cpu cycles for PAL.
-	if (cpu_ce && sys_type[0])
-		cpu_tick_count <= cpu_tick_count[2] ? 3'd0 : cpu_tick_count + 1'b1;
-	
+	if(rewind_time_to_load) begin
+		cpu_tick_count <= cpu_tick_count_rewind;
+	end else begin
+		if (cpu_ce && sys_type[0])
+			cpu_tick_count <= cpu_tick_count[2] ? 3'd0 : cpu_tick_count + 1'b1;
+	end
+
 	// SDRAM Clock
 	div_sys <= div_sys + 1'b1;
 	
 	// De-Jitter shenanigans
-	if (faux_pixel_cnt == 3)
-		freeze_clocks <= 1'b0;
+	if(rewind_time_to_load) begin
+		faux_pixel_cnt <= faux_pixel_cnt_rewind;
+	end else begin
+		if (faux_pixel_cnt == 3)
+			freeze_clocks <= 1'b0;
 
-	if (|faux_pixel_cnt)
-		faux_pixel_cnt <= faux_pixel_cnt - 1'b1;
+		if (|faux_pixel_cnt)
+			faux_pixel_cnt <= faux_pixel_cnt - 1'b1;
 
-	if (skip_pixel && (faux_pixel_cnt == 0)) begin
-		freeze_clocks <= 1'b1;
-		faux_pixel_cnt <= {div_ppu_n - 1'b1, 1'b0} + 1'b1;
+		if (skip_pixel && (faux_pixel_cnt == 0)) begin
+			freeze_clocks <= 1'b1;
+			faux_pixel_cnt <= {div_ppu_n - 1'b1, 1'b0} + 1'b1;
+		end
 	end
 
-	if (reset)
+	if (reset) begin
 		odd_or_even <= 1'b1;
-	else if (cpu_ce) 
-		odd_or_even <= ~odd_or_even;
+		odd_or_even_rewind <= 1'b1;
+	end else if(rewind_time_to_load)
+		odd_or_even <= odd_or_even_rewind;
+	else
+		if (cpu_ce) 
+			odd_or_even <= ~odd_or_even;
 
 	// Realign if the system type changes.
-	last_sys_type <= sys_type;
-	if (last_sys_type != sys_type) begin
-		div_cpu <= 5'd1;
-		div_ppu <= 3'd1;
-		div_sys <= 0;
+	if(rewind_time_to_load) begin
+		last_sys_type <= last_sys_type_rewind;
+		div_cpu <= div_cpu_rewind;
+		div_ppu <= div_ppu_rewind;
+		div_sys <= div_sys_rewind;
 		cpu_tick_count <= 0;
+	end else begin
+		last_sys_type <= sys_type;
+		if (last_sys_type != sys_type) begin
+			div_cpu <= 5'd1;
+			div_ppu <= 3'd1;
+			div_sys <= 0;
+			cpu_tick_count <= 0;
+		end
 	end
 end
 
@@ -290,7 +407,11 @@ T65 cpu(
 	.DI     (cpu_rnw ? from_data_bus : cpu_dout),
 	.DO     (cpu_dout),
 
-	.Regs(), .DEBUG(), .NMI_ack()
+	.Regs(), .DEBUG(), .NMI_ack(),
+
+	// Rewind
+	.i_rewind_time_to_save(rewind_time_to_save),
+	.i_rewind_time_to_load(rewind_time_to_load)
 );
 
 wire [15:0] dma_aout;
@@ -322,7 +443,10 @@ DmaController dma(
 	.read           (dma_read),
 	.data_to_ram    (dma_data_to_ram),
 	.dmc_ack        (apu_dma_ack),
-	.pause_cpu      (pause_cpu)
+	.pause_cpu      (pause_cpu),
+	// Rewind
+	.i_rewind_time_to_save(rewind_time_to_save),
+	.i_rewind_time_to_load(rewind_time_to_load)
 );
 
 
@@ -357,7 +481,10 @@ APU apu(
 	.odd_or_even    (odd_or_even),
 	.IRQ            (apu_irq),
 	.allow_us(1'b0),
-	.apu_enhanced_ce(i_APU_enhancements_ce)
+	.apu_enhanced_ce(i_APU_enhancements_ce),
+	// Rewind
+	.i_rewind_time_to_save(rewind_time_to_save),
+	.i_rewind_time_to_load(rewind_time_to_load)
 );
 
 assign sample = sample_a;

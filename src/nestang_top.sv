@@ -275,7 +275,10 @@ NES nes(
 
     .apu_ce(), .gg(), .gg_code(), .gg_avail(), .gg_reset(), .emphasis(), .save_written(),
     // Enhanced APU
-    .i_APU_enhancements_ce(NES_enhanced_APU)
+    .i_APU_enhancements_ce(NES_enhanced_APU),
+    // Rewind
+    .i_rewind_enabled(1'b1),
+    .i_rewind_time_to_load(NES_rewind_time_to_load)
 );
 
 // loader_write -> clock when data available
@@ -630,6 +633,10 @@ cheat_wizard(
     .o_wb_stall(NES_wb_slave_stall),
     .o_wb_err(NES_wb_slave_err)    
 );
+
+// Rewind
+assign NES_rewind_time_to_load = (joy1_btns[2] && joy1_btns[6]); // Select+Left
+
 
 // assign led[0] = ~NES_cheats_enabled;
 // assign led[1] = ~NES_cheats_loaded;

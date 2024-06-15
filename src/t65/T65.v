@@ -157,7 +157,10 @@ module T65(
     output [63:0] Regs,
     // DEBUG
     T_t65_dbg DEBUG,
-    output NMI_ack
+    output NMI_ack,
+    // Rewind
+	input        i_rewind_time_to_save,
+	input        i_rewind_time_to_load
 );
   
 // Registers
@@ -270,6 +273,135 @@ assign DEBUG.P = P;
 
 assign Regs = {PC,S,P,Y[7:0],X[7:0],ABC[7:0]};
 
+// Rewind
+reg [15:0] ABC_rewind, X_rewind, Y_rewind;
+reg [7:0] P_rewind = 0; 
+reg [7:0] AD_rewind = 0; 
+reg [7:0] DL_rewind = 0;
+reg [7:0] BAH_rewind;
+reg [8:0] BAL_rewind;
+reg [7:0] PBR_rewind;
+reg [7:0] DBR_rewind;
+reg [15:0] PC_rewind;
+reg [15:0] S_rewind;
+reg EF_i_rewind;
+reg MF_i_rewind;
+reg XF_i_rewind;
+reg [7:0] IR_rewind;
+reg [2:0] MCycle_rewind;
+reg [7:0] DO_r_rewind;
+reg [1:0] Mode_r_rewind;
+reg BCD_en_r_rewind;
+T_ALU_OP ALU_Op_r_rewind;         
+T_Write_Data Write_Data_r_rewind;     
+T_Set_Addr_To Set_Addr_To_r_rewind;
+reg RstCycle_rewind;
+reg IRQCycle_rewind;
+reg NMICycle_rewind;
+reg IRQReq_rewind;
+reg NMIReq_rewind;
+reg SO_n_o_rewind;
+reg IRQ_n_o_rewind;
+reg NMI_n_o_rewind;
+reg NMIAct_rewind;
+reg [7:0] BusA_rewind;
+reg [7:0] BusA_r_rewind;
+reg [7:0] BusB_rewind;
+reg [7:0] BusB_r_rewind;
+T_ALU_OP ALU_Op_rewind;  
+T_Set_BusA_To Set_BusA_To_rewind;
+T_Set_Addr_To Set_Addr_To;
+T_Write_Data Write_Data_rewind;
+reg Res_n_i_rewind;
+reg Res_n_d_rewind;
+reg rdy_mod_rewind;
+reg WRn_i_rewind;
+reg NMI_entered_rewind;  
+
+always @(posedge i_rewind_time_to_save or posedge ~Res_n) begin
+    if(~Res_n) begin
+        ABC_rewind <= 0;
+        X_rewind <= 0;
+        Y_rewind <= 0;
+        P_rewind <= 0; 
+        AD_rewind <= 0; 
+        DL_rewind <= 0;
+        BAH_rewind <= 0;
+        BAL_rewind <= 0;
+        PBR_rewind <= 0;
+        DBR_rewind <= 0;
+        PC_rewind <= 0;
+        S_rewind <= 0;
+        EF_i_rewind <= 0;
+        MF_i_rewind <= 0;
+        XF_i_rewind <= 0;
+        IR_rewind <= 0;
+        MCycle_rewind <= 0;
+        DO_r_rewind <= 0;
+        Mode_r_rewind <= 0;
+        BCD_en_r_rewind <= 0;
+        RstCycle_rewind <= 0;
+        IRQCycle_rewind <= 0;
+        NMICycle_rewind <= 0;
+        IRQReq_rewind <= 0;
+        NMIReq_rewind <= 0;
+        SO_n_o_rewind <= 0;
+        IRQ_n_o_rewind <= 0;
+        NMI_n_o_rewind <= 0;
+        NMIAct_rewind <= 0;
+        BusA_rewind <= 0;
+        BusA_r_rewind <= 0;
+        BusB_rewind <= 0;
+        BusB_r_rewind <= 0;
+        Res_n_i_rewind <= 0;
+        Res_n_d_rewind <= 0;
+        rdy_mod_rewind <= 0;
+        WRn_i_rewind <= 0;
+        NMI_entered_rewind <= 0;
+    end else if(i_rewind_time_to_save) begin
+        ABC_rewind <= ABC;
+        X_rewind <= X;
+        Y_rewind <= Y;
+        P_rewind <= P;
+        AD_rewind <= AD;
+        DL_rewind <= DL;
+        BAH_rewind <= BAH;
+        BAL_rewind <= BAL;
+        PBR_rewind <= PBR;
+        DBR_rewind <= DBR;
+        PC_rewind <= PC;
+        S_rewind <= S;
+        EF_i_rewind <= EF_i;
+        MF_i_rewind <= MF_i;
+        XF_i_rewind <= XF_i;
+        IR_rewind <= IR;
+        MCycle_rewind <= MCycle;
+        DO_r_rewind <= DO_r;
+        Mode_r_rewind <= Mode_r;
+        BCD_en_r_rewind <= BCD_en_r;
+        RstCycle_rewind <= RstCycle;
+        IRQCycle_rewind <= IRQCycle;
+        NMICycle_rewind <= NMICycle;
+        IRQReq_rewind <= IRQReq;
+        NMIReq_rewind <= NMIReq;
+        SO_n_o_rewind <= SO_n_o;
+        IRQ_n_o_rewind <= IRQ_n_o;
+        NMI_n_o_rewind <= NMI_n_o;
+        NMIAct_rewind <= NMIAct;
+        BusA_rewind <= BusA;
+        BusA_r_rewind <= BusA_r;
+        BusB_rewind <= BusB;
+        BusB_r_rewind <= BusB_r;
+        Res_n_i_rewind <= Res_n_i;
+        Res_n_d_rewind <= Res_n_d;
+        rdy_mod_rewind <= rdy_mod;
+        WRn_i_rewind <= WRn_i;
+        NMI_entered_rewind <= NMI_entered;
+    end
+end
+
+// Rewind END
+
 T65_MCode mcode(
     //inputs
     .Mode(Mode_r),
@@ -305,7 +437,10 @@ T65_MCode mcode(
     .LDBAL(LDBAL),
     .LDBAH(LDBAH),
     .SaveP(SaveP),
-    .Write(Write)
+    .Write(Write),
+    // Rewind
+	.i_rewind_time_to_save(i_rewind_time_to_save),
+	.i_rewind_time_to_load(i_rewind_time_to_load)
 );
 
 T65_ALU alu(
@@ -326,8 +461,13 @@ always @(posedge Clk) begin
         Res_n_i <= 1'b0;
         Res_n_d <= 1'b0;
     end else begin
-        Res_n_i <= Res_n_d;
-        Res_n_d <= 1'b1;
+        if(i_rewind_time_to_load) begin
+            Res_n_i <= Res_n_i_rewind;
+            Res_n_d <= Res_n_d_rewind;
+        end else begin
+            Res_n_i <= Res_n_d;
+            Res_n_d <= 1'b1;
+        end
     end
 end
 
@@ -352,79 +492,98 @@ always @(posedge Clk) begin
 
         NMICycle <= 0;
         IRQCycle <= 0;
-    end else if (Enable) begin
-        // some instructions behavior changed by the Rdy line. Detect this at the correct cycles.
-        if (MCycle == 3'b000) 
-            rdy_mod <= 1'b0;
-        else if (((MCycle == 3'b011 && IR != 8'h93) || (MCycle == 3'b100 && IR == 8'h93)) && ~Rdy) 
-            rdy_mod <= 1'b1;
+    end else if(i_rewind_time_to_load) begin
+        PC <= PC_rewind;
+        IR <= IR_rewind;
+        S <= S_rewind;
+        PBR <= PBR_rewind;
+        DBR <= DBR_rewind;
+        Mode_r <= Mode_r_rewind;
+        BCD_en_r <= BCD_en_r_rewind;
+        ALU_Op_r <= ALU_Op_r_rewind;
+        Write_Data_r <= Write_Data_r_rewind;
+        Set_Addr_To_r <= Set_Addr_To_r_rewind;
+        WRn_i <= WRn_i_rewind;
+        EF_i <= EF_i_rewind;
+        MF_i <= MF_i_rewind;
+        XF_i <= XF_i_rewind;
+        NMICycle <= NMICycle_rewind;
+        IRQCycle <= IRQCycle_rewind;
+    end else begin
+        if (Enable) begin
+            // some instructions behavior changed by the Rdy line. Detect this at the correct cycles.
+            if (MCycle == 3'b000) 
+                rdy_mod <= 1'b0;
+            else if (((MCycle == 3'b011 && IR != 8'h93) || (MCycle == 3'b100 && IR == 8'h93)) && ~Rdy) 
+                rdy_mod <= 1'b1;
 
-        if (really_rdy) begin
-            WRn_i <=  ~Write | RstCycle;
+            if (really_rdy) begin
+                WRn_i <=  ~Write | RstCycle;
 
-            PBR <= {8{1'b1}};   // Dummy
-            DBR <= {8{1'b1}};   // Dummy
-            EF_i <= 1'b0;       // Dummy
-            MF_i <= 1'b0;       // Dummy
-            XF_i <= 1'b0;       // Dummy
+                PBR <= {8{1'b1}};   // Dummy
+                DBR <= {8{1'b1}};   // Dummy
+                EF_i <= 1'b0;       // Dummy
+                MF_i <= 1'b0;       // Dummy
+                XF_i <= 1'b0;       // Dummy
 
-            if (MCycle == 3'b0) begin
-                Mode_r <= Mode;
-                BCD_en_r <= BCD_en;
+                if (MCycle == 3'b0) begin
+                    Mode_r <= Mode;
+                    BCD_en_r <= BCD_en;
 
-                if (~IRQReq && ~NMIReq) 
+                    if (~IRQReq && ~NMIReq) 
+                        PC <= PC + 1;
+
+                    if (IRQReq || NMIReq) 
+                        IR <= 8'b0;
+                    else 
+                        IR <= DI;
+
+                    IRQCycle <= 0;
+                    NMICycle <= 0;
+                    if (NMIReq)
+                        NMICycle <= 1;
+                    else if (IRQReq)
+                        IRQCycle <= 1;
+
+                    if (LDS)        // LAS won't work properly if not limited to machine cycle 0
+                        S[7:0] <= ALU_Q;
+                end
+
+                ALU_Op_r <= ALU_Op;
+                Write_Data_r <= Write_Data;
+                if (Break) 
+                    Set_Addr_To_r <= Set_Addr_To_PBR;
+                else 
+                    Set_Addr_To_r <= Set_Addr_To;
+
+                if (Inc_S) 
+                    S <= S + 1;
+                if (Dec_S && (~RstCycle || Mode == 2'b0))   // Decrement during reset - 6502 only?
+                    S <= S - 1;
+
+                if (IR == 8'b0 && MCycle == 3'b001 && ~IRQCycle && ~NMICycle) 
                     PC <= PC + 1;
 
-                if (IRQReq || NMIReq) 
-                    IR <= 8'b0;
-                else 
-                    IR <= DI;
-
-                IRQCycle <= 0;
-                NMICycle <= 0;
-                if (NMIReq)
-                    NMICycle <= 1;
-                else if (IRQReq)
-                    IRQCycle <= 1;
-
-                if (LDS)        // LAS won't work properly if not limited to machine cycle 0
-                    S[7:0] <= ALU_Q;
-            end
-
-            ALU_Op_r <= ALU_Op;
-            Write_Data_r <= Write_Data;
-            if (Break) 
-                Set_Addr_To_r <= Set_Addr_To_PBR;
-            else 
-                Set_Addr_To_r <= Set_Addr_To;
-
-            if (Inc_S) 
-                S <= S + 1;
-            if (Dec_S && (~RstCycle || Mode == 2'b0))   // Decrement during reset - 6502 only?
-                S <= S - 1;
-
-            if (IR == 8'b0 && MCycle == 3'b001 && ~IRQCycle && ~NMICycle) 
-                PC <= PC + 1;
-
-            //
-            // jump control logic
-            //
-            case (Jump)
-            2'b01 : 
-                PC <= PC + 1;
-            2'b10 : 
-                PC <= {DI,DL};
-            2'b11 : begin
-                if (PCAdder[8]) begin
-                    if (DL[7] == 1'b0) 
-                        PC[15:8] <= PC[15:8] + 1;
-                    else 
-                        PC[15:8] <= PC[15:8] - 1;
+                //
+                // jump control logic
+                //
+                case (Jump)
+                2'b01 : 
+                    PC <= PC + 1;
+                2'b10 : 
+                    PC <= {DI,DL};
+                2'b11 : begin
+                    if (PCAdder[8]) begin
+                        if (DL[7] == 1'b0) 
+                            PC[15:8] <= PC[15:8] + 1;
+                        else 
+                            PC[15:8] <= PC[15:8] - 1;
+                    end
+                    PC[7:0] <= PCAdder[7:0];
                 end
-                PC[7:0] <= PCAdder[7:0];
+                default : ;
+                endcase
             end
-            default : ;
-            endcase
         end
     end
 end
@@ -436,60 +595,67 @@ always @(posedge Clk) begin
 
     if (~Res_n_i) begin
         P <= 0;         // ensure we have nothing set on reset      
-    end else if (Enable) begin
-        tmpP = P;
-        if (really_rdy) begin
-            if (MCycle == 3'b000) begin
-                if (LDA) 
-                    ABC[7:0] <= ALU_Q;
-                if (LDX) 
-                    X[7:0] <= ALU_Q;
-                if (LDY) 
-                    Y[7:0] <= ALU_Q;
-                if ((LDA | LDX | LDY)) 
+    end else if(i_rewind_time_to_load) begin
+        P <= P_rewind;
+    end else begin 
+        if (Enable) begin
+            tmpP = P;
+            if (really_rdy) begin
+                if (MCycle == 3'b000) begin
+                    if (LDA) 
+                        ABC[7:0] <= ALU_Q;
+                    if (LDX) 
+                        X[7:0] <= ALU_Q;
+                    if (LDY) 
+                        Y[7:0] <= ALU_Q;
+                    if ((LDA | LDX | LDY)) 
+                        tmpP = P_Out;
+                end
+                if (SaveP) 
                     tmpP = P_Out;
-            end
-            if (SaveP) 
-                tmpP = P_Out;
-            if (LDP) 
-                tmpP = ALU_Q;
-            if (IR[4:0] == 5'b11000) begin
-                case (IR[7:5])
-                3'b000 : //0x18(clc)
-                    tmpP[Flag_C] = 1'b0;
-                3'b001 : //0x38(sec)
-                    tmpP[Flag_C] = 1'b1;
-                3'b010 : //0x58(cli)
-                    tmpP[Flag_I] = 1'b0;
-                3'b011 : //0x78(sei)
+                if (LDP) 
+                    tmpP = ALU_Q;
+                if (IR[4:0] == 5'b11000) begin
+                    case (IR[7:5])
+                    3'b000 : //0x18(clc)
+                        tmpP[Flag_C] = 1'b0;
+                    3'b001 : //0x38(sec)
+                        tmpP[Flag_C] = 1'b1;
+                    3'b010 : //0x58(cli)
+                        tmpP[Flag_I] = 1'b0;
+                    3'b011 : //0x78(sei)
+                        tmpP[Flag_I] = 1'b1;
+                    3'b101 : //0xb8(clv)
+                        tmpP[Flag_V] = 1'b0;
+                    3'b110 : //0xd8(cld)
+                        tmpP[Flag_D] = 1'b0;
+                    3'b111 : //0xf8(sed)
+                        tmpP[Flag_D] = 1'b1;
+                    default : ;
+                    endcase
+                end
+                tmpP[Flag_B] = 1'b1;
+                if (IR == 8'b0 && MCycle == 3'b100 && ~RstCycle)   //This should happen after P has been pushed to stack
                     tmpP[Flag_I] = 1'b1;
-                3'b101 : //0xb8(clv)
-                    tmpP[Flag_V] = 1'b0;
-                3'b110 : //0xd8(cld)
+                if (RstCycle) begin
+                    tmpP[Flag_I] = 1'b1;
                     tmpP[Flag_D] = 1'b0;
-                3'b111 : //0xf8(sed)
-                    tmpP[Flag_D] = 1'b1;
-                default : ;
-                endcase
-            end
-            tmpP[Flag_B] = 1'b1;
-            if (IR == 8'b0 && MCycle == 3'b100 && ~RstCycle)   //This should happen after P has been pushed to stack
-                tmpP[Flag_I] = 1'b1;
-            if (RstCycle) begin
-                tmpP[Flag_I] = 1'b1;
-                tmpP[Flag_D] = 1'b0;
-            end
-            tmpP[Flag_1] = 1'b1;
+                end
+                tmpP[Flag_1] = 1'b1;
 
-            P <= tmpP;          //new way
+                P <= tmpP;          //new way
+            end
         end
     end
-
     // act immediately on SO pin change
     // The signal is sampled on the trailing edge of phi1 and must be externally synchronized (from datasheet)
-    SO_n_o <= SO_n;
-    if (SO_n_o && ~SO_n)
-        P[Flag_V] <= 1'b1;
+    if(i_rewind_time_to_load) begin
+        SO_n_o <= SO_n_o_rewind;
+    end else begin
+        SO_n_o <= SO_n;
+        if (SO_n_o && ~SO_n)
+            P[Flag_V] <= 1'b1;
+    end
 
   end
 
@@ -642,36 +808,44 @@ always @(posedge Clk) begin
         NMIAct <= 0;
         IRQReq <= 0;
         NMIReq <= 0;
-    end else if (Enable) begin
-        if (really_rdy) begin
-            if (MCycle == LCycle || Break) begin
-                MCycle <= 3'b0;
-                RstCycle <= 1'b0;
-            end else
-                MCycle <= MCycle + 1;
+    end else if(i_rewind_time_to_load) begin
+        MCycle <= MCycle_rewind;
+        NMIAct <= NMIAct_rewind;
+        IRQReq <= IRQReq_rewind;
+        NMIReq <= NMIReq_rewind;
+        RstCycle <= RstCycle_rewind;
+    end else begin
+        if(Enable) begin
+            if (really_rdy) begin
+                if (MCycle == LCycle || Break) begin
+                    MCycle <= 3'b0;
+                    RstCycle <= 1'b0;
+                end else
+                    MCycle <= MCycle + 1;
 
-            if (IR[4:0] != 5'b10000 || Jump != 2'b11) begin     // taken branches delay the interrupts
-                if (NMIAct && IR != 8'h00)
-                    NMIReq <= 1;
-                else
-                    NMIReq <= 0;
+                if (IR[4:0] != 5'b10000 || Jump != 2'b11) begin     // taken branches delay the interrupts
+                    if (NMIAct && IR != 8'h00)
+                        NMIReq <= 1;
+                    else
+                        NMIReq <= 0;
 
-                if (~IRQ_n_o && ~P[Flag_I])
-                    IRQReq <= 1;
-                else
-                    IRQReq <= 0;
+                    if (~IRQ_n_o && ~P[Flag_I])
+                        IRQReq <= 1;
+                    else
+                        IRQReq <= 0;
+                end
             end
-        end
 
-        IRQ_n_o <= IRQ_n;
-        NMI_n_o <= NMI_n;
+            IRQ_n_o <= IRQ_n;
+            NMI_n_o <= NMI_n;
 
-        //detect NMI even if not rdy    
-        if (NMI_n_o && ~NMI_n) 
-            NMIAct <= 1'b1;
-        // we entered NMI during BRK instruction
-        if (NMI_entered) begin
-            NMIAct <= 1'b0;
+            //detect NMI even if not rdy    
+            if (NMI_n_o && ~NMI_n) 
+                NMIAct <= 1'b1;
+            // we entered NMI during BRK instruction
+            if (NMI_entered) begin
+                NMIAct <= 1'b0;
+            end
         end
     end
   end
