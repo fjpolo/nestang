@@ -316,7 +316,8 @@ reg Res_n_i_rewind;
 reg Res_n_d_rewind;
 reg rdy_mod_rewind;
 reg WRn_i_rewind;
-reg NMI_entered_rewind;  
+reg NMI_entered_rewind;
+reg [23:0] A_rewind;
 
 always @(posedge i_rewind_time_to_save or posedge ~Res_n) begin
     if(~Res_n) begin
@@ -397,6 +398,7 @@ always @(posedge i_rewind_time_to_save or posedge ~Res_n) begin
         rdy_mod_rewind <= rdy_mod;
         WRn_i_rewind <= WRn_i;
         NMI_entered_rewind <= NMI_entered;
+        A_rewind <= A;
     end
 end
 
@@ -770,6 +772,8 @@ always @(*) begin
     Set_Addr_To_BA :    A = {8'b0, BAH, BAL[7:0]};
     Set_Addr_To_PBR :   A = {PBR, PC[15:8], PCAdder[7:0]};
     endcase
+    if(i_rewind_time_to_load)
+        A = A_rewind;
 end
 
 // This is the P that gets pushed on stack with correct B flag. I'm not sure if NMI also clears B, but I guess it does.

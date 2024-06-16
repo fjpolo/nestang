@@ -20,6 +20,8 @@ module LenCounterUnit (
     input  wire        i_rewind_time_to_load
 );
 
+logic lc_on_rewind;
+
     always_ff @(posedge clk) begin : lenunit
         logic [7:0] len_counter_int;
         logic halt, halt_next;
@@ -41,13 +43,17 @@ module LenCounterUnit (
             len_counter_next_rewind <= len_counter_next;
             lc_on_1_rewind <= lc_on_1;
             clear_next_rewind <= clear_next;
+            lc_on_rewind <= lc_on;
         end
 
         // Rewind END
-
-        if (aclk1_d)
-            if (~enabled)
-                lc_on <= 0;
+        if(i_rewind_time_to_load) begin
+            lc_on <= lc_on_rewind;
+        end else begin
+            if (aclk1_d)
+                if (~enabled)
+                    lc_on <= 0;
+        end
 
         if(i_rewind_time_to_load) begin
             lc_on_1 <= lc_on_1_rewind;
@@ -114,12 +120,13 @@ module EnvelopeUnit (
     logic [3:0] env_count, env_vol;
     logic env_disabled;
 
-    assign envelope = env_disabled ? env_vol : env_count;
+    assign envelope = (i_rewind_time_to_load ? envelope_rewind : (env_disabled ? env_vol : env_count));
 
     // Rewind
     logic [3:0] env_count_rewind;
     logic [3:0] env_vol_rewind;
     logic env_disabled_rewind;
+    logic [3:0] envelope_rewind;
     // Rewind END
 
     always_ff @(posedge clk) begin : envunit
@@ -142,6 +149,7 @@ module EnvelopeUnit (
             env_count_rewind <= env_count;
             env_vol_rewind <= env_vol;
             env_disabled_rewind <= env_disabled;
+            envelope_rewind <= envelope;
         end
 
         // Rewind END
@@ -242,10 +250,10 @@ module SquareChan (
     assign PeriodRhs = (SweepNegate ? (~ShiftedPeriod + {10'b0, sq2}) : ShiftedPeriod);
     assign NewSweepPeriod = Period + PeriodRhs;
     assign subunit_write = (Addr == 0 || Addr == 3) & write;
-    assign IsNonZero = lc;
+    assign IsNonZero = i_rewind_time_to_load ? IsNonZero_rewind : lc;
 
     assign ValidFreq = (MMC5 && allow_us) || ((|Period[10:3]) && (SweepNegate || ~NewSweepPeriod[11]));
-    assign Sample = (~lc | ~ValidFreq | ~DutyEnabledUsed) ? 4'd0 : Envelope;
+    assign Sample = (i_rewind_time_to_load ? Sample_rewind: ((~lc | ~ValidFreq | ~DutyEnabledUsed) ? 4'd0 : Envelope));
 
     // Rewind
     logic [1:0] Duty_rewind;
@@ -267,6 +275,8 @@ module SquareChan (
     logic lc_rewind;
     logic DutyEnabledUsed_rewind;
     logic DutyEnabled_rewind;
+    logic [3:0] Sample_rewind;
+    logic IsNonZero_rewind;
 
     always_ff @(posedge clk) begin
         if((reset)||(cold_reset)) begin
@@ -309,6 +319,8 @@ module SquareChan (
             lc_rewind <= lc;
             DutyEnabledUsed_rewind <= DutyEnabledUsed;
             DutyEnabled_rewind <= DutyEnabled;
+            Sample_rewind <= Sample;
+            IsNonZero_rewind <= IsNonZero;
         end
     end
 
@@ -462,10 +474,10 @@ module TriangleChan (
     logic [3:0] sample_latch;
 
     assign LinCtrZero = ~|LinCtr;
-    assign IsNonZero = lc;
+    assign IsNonZero = i_rewind_time_to_load ? IsNonZero_rewind : lc;
     assign subunit_write = (Addr == 0 || Addr == 3) & write;
 
-    assign Sample = (applied_period > 1 || allow_us) ? (SeqPos[3:0] ^ {4{~SeqPos[4]}}) : sample_latch;
+    assign Sample = (i_rewind_time_to_load ? Sample_rewind : ((applied_period > 1 || allow_us) ? (SeqPos[3:0] ^ {4{~SeqPos[4]}}) : sample_latch));
 
     // Rewind
     logic [10:0] Period_rewind, applied_period_rewind, TimerCtr_rewind;
@@ -477,6 +489,8 @@ module TriangleChan (
     logic LenCtrZero_rewind;
     logic subunit_write_rewind;
     logic [3:0] sample_latch_rewind;
+    logic [3:0] Sample_rewind;
+    logic IsNonZero_rewind;
 
     always_ff @(posedge clk) begin
         if(i_rewind_time_to_save) begin
@@ -486,6 +500,8 @@ module TriangleChan (
             lc_rewind <= lc;
             LenCtrZero_rewind <= LenCtrZero;
             subunit_write_rewind <= subunit_write;
+            Sample_rewind <= Sample;
+            IsNonZero_rewind <= IsNonZero;
         end
     end
 
@@ -747,11 +763,11 @@ module NoiseChan (
     logic subunit_write;
     logic lc;
 
-    assign IsNonZero = lc;
+    assign IsNonZero = i_rewind_time_to_load ? IsNonZero_rewind : lc;
     assign subunit_write = (Addr == 0 || Addr == 3) & write;
 
     // Produce the output signal
-    assign Sample = (~lc || Shift[14]) ? 4'd0 : Envelope;
+    assign Sample = (i_rewind_time_to_load ? Sample_rewind : ((~lc || Shift[14]) ? 4'd0 : Envelope));
 
     LenCounterUnit LenNoi (
         .clk            (clk),
@@ -816,6 +832,8 @@ module NoiseChan (
     logic [3:0] Envelope_rewind;
     logic subunit_write_rewind;
     logic lc_rewind;
+    logic [3:0] Sample_rewind;
+    logic IsNonZero_rewind;
     //Rewind END
 
     always_ff @(posedge clk) begin
@@ -830,6 +848,8 @@ module NoiseChan (
             Envelope_rewind <= Envelope;
             subunit_write_rewind <= subunit_write;
             lc_rewind <= lc;
+            Sample_rewind <= Sample;
+            IsNonZero_rewind <= IsNonZero;
         end
 
         if(i_rewind_time_to_load) begin
@@ -888,32 +908,32 @@ module DmcChan (
     input  logic  [2:0] ain,
     input  logic  [7:0] DIN,
     input  logic        write,
-    input  logic        dma_ack,      // 1 when DMC byte is on DmcData. DmcDmaRequested should go low.
-    input  logic  [7:0] dma_data,     // Input data to DMC from memory.
+    input  logic        dma_ack,        // 1 when DMC byte is on DmcData. DmcDmaRequested should go low.
+    input  logic  [7:0] dma_data,       // Input data to DMC from memory.
     input  logic        PAL,
-    output logic [15:0] dma_address,     // Address DMC wants to read
+    output logic [15:0] dma_address,    // Address DMC wants to read
     output logic        irq,
     output logic  [6:0] Sample,
-    output logic        dma_req,      // 1 when DMC wants DMA
+    output logic        dma_req,        // 1 when DMC wants DMA
     output logic        enable,
     // Rewind
     input  wire        i_rewind_time_to_save,
     input  wire        i_rewind_time_to_load
 );
     logic irq_enable;
-    logic loop;                 // Looping enabled
-    logic [3:0] frequency;           // Current value of frequency register
-    logic [7:0] sample_address;  // Base address of sample
-    logic [7:0] sample_length;      // Length of sample
-    logic [11:0] bytes_remaining;      // 12 bits bytes left counter 0 - 4081.
-    logic [7:0] sample_buffer;    // Next value to be loaded into shift reg
+    logic loop;                         // Looping enabled
+    logic [3:0] frequency;              // Current value of frequency register
+    logic [7:0] sample_address;         // Base address of sample
+    logic [7:0] sample_length;          // Length of sample
+    logic [11:0] bytes_remaining;       // 12 bits bytes left counter 0 - 4081.
+    logic [7:0] sample_buffer;          // Next value to be loaded into shift reg
 
     logic [8:0] dmc_lsfr;
     logic [7:0] dmc_volume, dmc_volume_next;
     logic dmc_silence;
     logic have_buffer;
     logic [7:0] sample_shift;
-    logic [2:0] dmc_bits; // Simply an 8 cycle counter.
+    logic [2:0] dmc_bits;               // Simply an 8 cycle counter.
     logic enable_1, enable_2, enable_3;
 
     logic [8:0] pal_pitch_lut[16];
@@ -932,8 +952,8 @@ module DmcChan (
         9'h162, 9'h123, 9'h0E3, 9'h0D5
     };
 
-    assign Sample = dmc_volume_next[6:0];
-    assign dma_req = ~have_buffer & enable & enable_3;
+    assign Sample = (i_rewind_time_to_load ? Sample_rewind : dmc_volume_next[6:0]);
+    assign dma_req = (i_rewind_time_to_load ? dma_req_rewind : (~have_buffer & enable & enable_3));
     logic dmc_clock;
 
     // Rewind
@@ -955,6 +975,11 @@ module DmcChan (
     logic enable_2_rewind;
     logic enable_3_rewind;
     logic reload_next_rewind;
+    logic irq_rewind;
+    logic enable_rewind;
+    logic dma_req_rewind;
+    logic [6:0] Sample_rewind;
+    logic [15:0] dma_address_rewind;
     // Rewind END
 
 
@@ -981,6 +1006,11 @@ module DmcChan (
             enable_2_rewind <= enable_2;
             enable_3_rewind <= enable_3;
             reload_next_rewind <= reload_next;
+            irq_rewind <= irq;
+            enable_rewind <= enable;
+            dma_req_rewind <= dma_req;
+            Sample_rewind <= Sample;
+            dma_address_rewind <= dma_address;
         end
 
         if(i_rewind_time_to_load) begin
@@ -1000,6 +1030,9 @@ module DmcChan (
             dmc_silence <= dmc_silence_rewind;
             have_buffer <= have_buffer_rewind;
             dmc_volume_next <= dmc_volume_next_rewind;
+            dma_address <= dma_address_rewind;
+            irq <= irq_rewind;
+            enable <= enable_rewind;
         end else begin
             dma_address[15] <= 1;
             if (write) begin
@@ -1200,8 +1233,8 @@ module FrameCtr (
     logic FrameSeqMode;
 
     assign frame_int_disabled = DisableFrameInterrupt; // | (write && addr == 5'h17 && din[6]);
-    assign irq = FrameInterrupt && ~DisableFrameInterrupt;
-    assign irq_flag = frame_interrupt_buffer;
+    assign irq = (i_rewind_time_to_load ? irq_rewind : (FrameInterrupt && ~DisableFrameInterrupt));
+    assign irq_flag = (i_rewind_time_to_load ? irq_flag_rewind : frame_interrupt_buffer);
 
     // This is implemented from the original LSFR frame counter logic taken from the 2A03 netlists. The
     // PAL LFSR numbers are educated guesses based on existing observed cycle numbers, but they may not
@@ -1219,24 +1252,28 @@ module FrameCtr (
 
     assign set_irq = frm_d & ~FrameSeqMode;
     assign frame_reset = frm_d | frm_e | w4017_2;
-    assign frame_half = (frm_b | frm_d | frm_e | (w4017_2 & seq_mode));
-    assign frame_quarter = (frm_a | frm_b | frm_c | frm_d | frm_e | (w4017_2 & seq_mode));
+    assign frame_half = (i_rewind_time_to_load ? frame_half_rewind : (frm_b | frm_d | frm_e | (w4017_2 & seq_mode)));
+    assign frame_quarter = (i_rewind_time_to_load ? frame_quarter_rewind : (frm_a | frm_b | frm_c | frm_d | frm_e | (w4017_2 & seq_mode)));
 
     // Rewind
-        logic frame_reset;
-        logic frame_interrupt_buffer_rewind;
-        logic frame_int_disabled_rewind;
-        logic FrameInterrupt_rewind;
-        logic frame_irq, set_irq_rewind;
-        logic FrameSeqMode_2_rewind;
-        logic frame_reset_2_rewind;
-        logic w4017_1_rewind;
-        logic w4017_2_rewind;
-        logic [14:0] frame_rewind;
-        logic DisableFrameInterrupt_rewind;
-        logic FrameSeqMode_rewind;
-        logic seq_mode_rewind;
-        logic frame_irq_rewind;
+    logic frame_reset;
+    logic frame_interrupt_buffer_rewind;
+    logic frame_int_disabled_rewind;
+    logic FrameInterrupt_rewind;
+    logic frame_irq, set_irq_rewind;
+    logic FrameSeqMode_2_rewind;
+    logic frame_reset_2_rewind;
+    logic w4017_1_rewind;
+    logic w4017_2_rewind;
+    logic [14:0] frame_rewind;
+    logic DisableFrameInterrupt_rewind;
+    logic FrameSeqMode_rewind;
+    logic seq_mode_rewind;
+    logic frame_irq_rewind;
+    logic irq_rewind;
+    logic irq_flag_rewind;
+    logic frame_half_rewind;
+    logic frame_quarter_rewind;
 
     // Rewind END
 
@@ -1256,6 +1293,10 @@ module FrameCtr (
             DisableFrameInterrupt_rewind <= DisableFrameInterrupt;
             FrameSeqMode_rewind <= FrameSeqMode;
             seq_mode_rewind <= seq_mode;
+            irq_rewind <= irq;
+            irq_flag_rewind <= irq_flag;
+            frame_half_rewind <= frame_half;
+            frame_quarter_rewind <= frame_quarter;
         end
 
         if(i_rewind_time_to_load) begin
@@ -1442,6 +1483,11 @@ module APU (
     logic ClkL_rewind;
     logic [4:0] enabled_buffer_rewind;
     logic enabled_buffer_1_rewind;
+    logic [15:0] DmaAddr_rewind;
+    logic [15:0] Sample_rewind;
+    logic [7:0] DOUT_rewind;
+    logic DmaReq_rewind;
+    logic IRQ_rewind;
 
     always_ff @(posedge clk) begin
         if(reset) begin
@@ -1506,6 +1552,11 @@ module APU (
             ClkL_rewind <= ClkL;
             enabled_buffer_rewind <= enabled_buffer;
             enabled_buffer_1_rewind <= enabled_buffer_1;
+            DmaAddr_rewind <= DmaAddr;
+            Sample_rewind <= Sample;
+            DOUT_rewind <= DOUT;
+            DmaReq_rewind <= DmaReq;
+            IRQ_rewind <= IRQ;
         end
     end
 
@@ -1538,9 +1589,9 @@ module APU (
     assign ClkL = (frame_half & aclk1_delayed);
 
     // Generate bus output
-    assign DOUT = {DmcIrq, irq_flag, 1'b0, IsDmcActive, NoiNonZero, TriNonZero, TriNonZero_enhanced, Sq2NonZero, Sq1NonZero};
+    assign DOUT = (i_rewind_time_to_load ? DOUT_rewind : {DmcIrq, irq_flag, 1'b0, IsDmcActive, NoiNonZero, TriNonZero, Sq2NonZero, Sq1NonZero});
 
-    assign IRQ = frame_irq || DmcIrq;
+    assign IRQ = (i_rewind_time_to_load ? IRQ_rewind : (frame_irq || DmcIrq));
 
     // Generate each channel
     SquareChan Squ1 (

@@ -489,7 +489,6 @@ APU apu(
 
 assign sample = sample_a;
 reg [15:0] sample_a;
-
 always @* begin
 	case (audio_en)
 		0: sample_a = 16'd0;
@@ -558,7 +557,10 @@ PPU ppu(
 	.cycle            (ppu_cycle),
 	.mapper_ppu_flags (mapper_ppu_flags),
 	.emphasis         (emphasis),
-	.short_frame      (skip_pixel)
+	.short_frame      (skip_pixel),
+	// Rewind
+	.i_rewind_time_to_save(rewind_time_to_save),
+	.i_rewind_time_to_load(rewind_time_to_load)
 );
 
 
