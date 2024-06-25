@@ -17,7 +17,7 @@ module LenCounterUnit (
     output logic       lc_on
 );
 
-    always_ff @(posedge clk) begin : lenunit
+    always @(posedge clk) begin : lenunit
         logic [7:0] len_counter_int;
         logic halt, halt_next;
         logic [7:0] len_counter_next;
@@ -77,7 +77,7 @@ module EnvelopeUnit (
 
     assign envelope = env_disabled ? env_vol : env_count;
 
-    always_ff @(posedge clk) begin : envunit
+    always @(posedge clk) begin : envunit
         logic [3:0] env_div;
         logic env_reload;
         logic env_loop;
@@ -193,7 +193,7 @@ module SquareChan (
         .envelope       (Envelope)
     );
 
-    always_comb begin
+    always @(*) begin
         // The wave forms nad barrel shifter are abstracted simply here
         case (Duty)
             0: DutyEnabled = (SeqPos == 7);
@@ -203,7 +203,7 @@ module SquareChan (
         endcase
     end
 
-    always_ff @(posedge clk) begin : sqblock
+    always @(posedge clk) begin : sqblock
         // Unusual to APU design, the square timers are clocked overlapping two phi2. This
         // means that writes can impact this operation as they happen, however because of the way
         // the results are presented, we can simply delay it rather than adding complexity for
@@ -314,7 +314,7 @@ module TriangleChan (
         .lc_on          (lc)
     );
 
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         if (phi1) begin
             if (TimerCtr == 0) begin
                 TimerCtr <= Period;
@@ -430,7 +430,7 @@ module TriangleChan_enhanced (
         .lc_on          (lc)
     );
 
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         if (phi1) begin
             if (TimerCtr == 0) begin
                 TimerCtr <= Period;
@@ -566,7 +566,7 @@ module NoiseChan (
 
     logic [10:0] noise_timer;
     logic noise_clock;
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         if (aclk1_d) begin
             noise_timer <= {noise_timer[9:0], (noise_timer[10] ^ noise_timer[8]) | ~|noise_timer};
 
@@ -656,7 +656,7 @@ module DmcChan (
 
 
     logic reload_next;
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         dma_address[15] <= 1;
         if (write) begin
             case (ain)
@@ -851,7 +851,7 @@ module FrameCtr (
     assign frame_half = (frm_b | frm_d | frm_e | (w4017_2 & seq_mode));
     assign frame_quarter = (frm_a | frm_b | frm_c | frm_d | frm_e | (w4017_2 & seq_mode));
 
-    always_ff @(posedge clk) begin : apu_block
+    always @(posedge clk) begin : apu_block
 
         if (aclk1) begin
             frame <= frame_reset_2 ? 15'h7FFF : {frame[13:0], ((frame[14] ^ frame[13]) | ~|frame)};
@@ -982,7 +982,7 @@ module APU (
     logic [4:0] enabled_buffer, enabled_buffer_1;
     assign Enabled = aclk1 ? enabled_buffer : enabled_buffer_1;
 
-    always_ff @(posedge clk) begin
+    always @(posedge clk) begin
         phi2_old <= PHI2;
 
         if (aclk1) begin
