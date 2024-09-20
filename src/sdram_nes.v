@@ -110,8 +110,7 @@ localparam PORT_NONE  = 2'd0;
 
 localparam PORT_A     = 2'd1;   // PPU
 localparam PORT_B     = 2'd2;   // CPU
-
-localparam PORT_RV    = 2'd1;
+localparam PORT_RV    = 2'd3;   // RV
 
 reg  [1:0] port[0:1];
 reg  [1:0] next_port[0:1];
@@ -124,6 +123,11 @@ reg  [2:0] next_oe;
 reg oeA_d, oeB_d, weA_d, weB_d;
 wire reqA = (~oeA_d & oeA) || (~weA_d & weA);
 wire reqB = (~oeB_d & oeB) || (~weB_d & weB);
+
+reg oeRV_d, weRV_d;
+wire oeRV = rv_req;
+wire weRV = rv_we;
+wire reqA = (~oeRV_d & oeRV) || (~weRV_d & weRV);
 
 reg clkref_r;
 always @(posedge clk) clkref_r <= clkref;
@@ -160,25 +164,15 @@ always @(*) begin
 		next_ds[0] = {addrA[0], ~addrA[0]};
 		next_we[0] = weA;
 		next_oe[0] = oeA;
-	end 
-end
+    end else if (rv_req) begin
+        next_port[0] = PORT_RV;
+		next_addr[0] = {rv_addr, 1'b0};
+		next_din[0] = rv_din;
+		next_ds[0] = rv_ds;
+		next_we[0] = rv_we;
+		next_oe[0] = ~rv_we;
+    end
 
-// RV: bank 2
-always @* begin
-	next_port[1] = PORT_NONE;
-	next_addr[1] = 0;
-	next_we[1] = 0;
-	next_oe[1] = 0;
-	next_ds[1] = 0;
-	next_din[1] = 0;
-    if (rv_req ^ rv_req_ack) begin
-		next_port[1] = PORT_RV;
-		next_addr[1] = {rv_addr, 1'b0};
-		next_we[1] = rv_we;
-		next_oe[1] = ~rv_we;
-		next_din[1] = rv_din;
-		next_ds[1] = rv_ds;
-	end 
 end
 
 //
@@ -247,36 +241,28 @@ always @(posedge clk) begin
     			port[0] <= next_port[0];
                 oeA_d <= oeA_d & oeA; weA_d <= weA_d & weA;
                 oeB_d <= oeB_d & oeB; weB_d <= weB_d & weB;
+                oeRV_d <= oeRV_d & oeRV; weRV_d <= weRV_d & weRV;
                 if (next_port[0] == PORT_A) begin
                     oeA_d <= oeA; weA_d <= weA;
                 end
                 if (next_port[0] == PORT_B) begin
                     oeB_d <= oeB; weB_d <= weB;
                 end
+                if (next_port[0] == PORT_RV) begin
+                    oeRV_d <= oeRV; weRV_d <= weRV;
+                end
 	    		{ we_latch[0], oe_latch[0] } <= { next_we[0], next_oe[0] };
     			addr_latch[0] <= next_addr[0];
                 SDRAM_BA <= next_addr[0][21];       // bank 0 or 1
                 din_latch[0] <= next_din[0];
                 ds[0] <= next_ds[0];
-                if (next_port[0] != PORT_NONE) cmd <= CMD_BankActivate;
-	    		a <= next_addr[0][20:10];
-            end
-
-            // bank 1 - RV
-            if (cycle[2]) begin
-                port[1] <= next_port[1];
-                { we_latch[1], oe_latch[1] } <= { next_we[1], next_oe[1] };
-                addr_latch[1] <= next_addr[1];
-                a <= next_addr[1][20:10];
-                SDRAM_BA <= 2'd2;
-                din_latch[1] <= next_din[1];
-                ds[1] <= next_ds[1];
-                if (next_port[1] != PORT_NONE) begin 
-                    cmd <= CMD_BankActivate; 
+                if (next_port[0] != PORT_NONE) begin
+                    cmd <= CMD_BankActivate;
                 end else if (!we_latch[0] && !oe_latch[0] && !we_latch[1] && !oe_latch[1] && need_refresh) begin
                     refresh_cnt <= 0;
                     cmd <= CMD_AutoRefresh;
                 end
+	    		a <= next_addr[0][20:10];
             end
 
             // CAS
@@ -301,30 +287,8 @@ always @(posedge clk) begin
 `endif
                 end else
                     SDRAM_DQM <= 0;
-            end
-
-            // RV
-            if (cycle[4] && (oe_latch[1] || we_latch[1])) begin
-                cmd <= we_latch[1]?CMD_Write:CMD_Read;
-			    SDRAM_BA <= 2'd2;
-`ifdef NANO
-                a <= addr_latch[1][9:2];  
-`else
-                a <= addr_latch[1][9:1];  
-`endif
-                a[10] <= 1'b1;// auto precharge
-                if (we_latch[1]) begin
-                    dq_oen <= 0;
-`ifdef NANO
-                    SDRAM_DQM <= addr_latch[1][1] ? {~ds[1], 2'b11} : {2'b11, ~ds[1]};
-                    dq_out <= {din_latch[1], din_latch[1]};
-`else
-                    SDRAM_DQM <= ~ds[1];
-                    dq_out <= din_latch[1];
-`endif
-                end else
-                    SDRAM_DQM <= 0;
-                rv_req_ack <= rv_req;       // ack request
+                if(next_port[0] == PORT_RV)
+                    rv_req_ack <= rv_req;       // ack request
             end
 
             // read
@@ -345,17 +309,10 @@ always @(posedge clk) begin
                 case (port[0])
                 PORT_A: doutA <= dq_byte;
                 PORT_B: doutB <= dq_byte;
+                PORT_RV: rv_dout <= dq_byte;
                 default: ;
                 endcase
             end
-
-            // RV
-            if (cycle[1] && oe_latch[1]) 
-`ifdef NANO
-                rv_dout <= addr_latch[1][1] ? dq_in[31:16] : dq_in[15:0];
-`else
-                rv_dout <= dq_in;
-`endif
         end
     end
 end
