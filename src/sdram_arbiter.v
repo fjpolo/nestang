@@ -97,9 +97,9 @@ sdram_nes sdram (
 
     // CPU
     .addrB(i_rom_loading ? i_loader_addr_mem : i_memory_addr_cpu),
-    .weB(i_rom_loading || i_memory_write_cpu),
+    .weB((i_loader_write_mem)||(i_memory_write_cpu)),
     .dinB(i_rom_loading ? i_loader_write_data_mem : i_memory_din_sdram_cpu_dout),
-    .oeB(~i_rom_loading & i_memory_read_cpu),
+    .oeB((~i_rom_loading)&(i_memory_read_cpu)),
     .doutB(o_memory_dout_sdram_cpu_din),
 
     // IOSys risc-v softcore
