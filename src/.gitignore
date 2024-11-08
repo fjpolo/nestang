@@ -7,3 +7,8 @@ cheat_wizard/
 cheat_wizard_bound/
 cheat_wizard_prf/
 cheat_wizard_cvr/
+
+sdram_arbiter/
+sdram_arbiter_bound/
+sdram_arbiter_cvr/
+sdram_arbiter_prf/

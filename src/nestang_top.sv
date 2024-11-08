@@ -299,8 +299,8 @@ always @(posedge clk) begin
         mapper_flags <= loader_flags;
 end
 
-// From sdram_nes.v or sdram_sim.v
-sdram_nes sdram (
+// sdram_arbiter
+sdram_nes sdram_arbiter (
     .clk(fclk), .clkref(clkref), .resetn(sys_resetn), .busy(sdram_busy),
 
     .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), 
@@ -318,7 +318,17 @@ sdram_nes sdram (
 
     // IOSys risc-v softcore
     .rv_addr({rv_addr[20:2], rv_word}), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
-    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
+    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0),
+
+    //
+    .loading(loading),
+    .loader_addr_mem(loader_addr_mem),
+    .memory_addr_cpu(memory_addr_cpu),
+    .loader_write_mem(loader_write_mem),
+    .memory_write_cpu(memory_write_cpu),
+
+    // WRAM
+    .i_wram_load_ongoing(wram_load_bsram)
 );
 
 // ROM parser
@@ -466,6 +476,7 @@ always @(posedge clk) begin            // RV
 end
 reg NES_enhanced_APU;
 reg [7:0] NES_mapper;
+wire wram_load_bsram;
 iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang logo
     iosys (
     .clk(clk), .hclk(hclk), .resetn(sys_resetn),
@@ -513,7 +524,9 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .o_sys_type(system_type),
     
     // Aspect Ratio
-    .o_reg_aspect_ratio(NES_aspect_ratio)
+    .o_reg_aspect_ratio(NES_aspect_ratio),
+    // reg_load_bsram
+    .o_reg_load_bsram(wram_load_bsram)
 );
 
 // Controller input

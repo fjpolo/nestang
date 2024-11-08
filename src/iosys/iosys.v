@@ -112,7 +112,9 @@ module iosys #(
     // System Type
     output wire [1:0] o_sys_type,
     // Aspect Ratio
-    output wire o_reg_aspect_ratio
+    output wire o_reg_aspect_ratio,
+    // reg_load_bsram
+    output wire o_reg_load_bsram
 );
 
 /* verilator lint_off PINMISSING */
@@ -600,6 +602,9 @@ always @(posedge clk) begin
 end
 
 assign o_reg_aspect_ratio = reg_aspect_ratio;
+
+// reg_load_bsram
+assign o_reg_load_bsram = reg_load_bsram;
 
 // Timer Interrupts
 reg [31:0] reg_timer_interrupts;
