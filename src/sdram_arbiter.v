@@ -4,7 +4,7 @@
 /*
 /*  Problem: NES CPU and RV need to access a shared memory space: WRAM, with the current mapping:
 /*      - NES CPU: 16'h6000-16'h8000
-/*      - RV: 22'h66000-22'h68000 mapped to (22'h66000>1'b1)-(22'h58000>1'b1) in this module
+/*      - RV: 22'h66000-22'h68000
 /*  
 /*  This is a quick and dirty solution where a 8kB of BSRAM are used as a shared memory space for any access to this address region.
 /* sdram_nes module is not modified nor verified here.
