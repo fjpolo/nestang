@@ -300,7 +300,7 @@ always @(posedge clk) begin
 end
 
 // sdram_arbiter
-sdram_nes sdram_arbiter (
+sdram_arbiter sdram_arbiter (
     .clk(fclk), .clkref(clkref), .resetn(sys_resetn), .busy(sdram_busy),
 
     .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), 
@@ -326,6 +326,7 @@ sdram_nes sdram_arbiter (
     .memory_addr_cpu(memory_addr_cpu),
     .loader_write_mem(loader_write_mem),
     .memory_write_cpu(memory_write_cpu),
+    .rv_wdata(rv_wdata),
 
     // WRAM
     .i_wram_load_ongoing(wram_load_bsram)

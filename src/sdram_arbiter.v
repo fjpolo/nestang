@@ -20,10 +20,9 @@
 /*  Some assumptions:
 /*      - rv_req_ack comes from sdram_nes module, we only replace wv_dout
 *******************************************************************/
-`default_nettype none
+//`default_nettype none
 
-module sdram_arbiter(
-`ifndef FORMAL
+module sdram_arbiter #(
     // Clock frequency, max 66.7Mhz with current set of T_xx/CAS parameters.
     parameter         FREQ = 64_800_000,
 
@@ -44,7 +43,6 @@ module sdram_arbiter(
 	output  wire                                SDRAM_nRAS, // row address select
 	output  wire                                SDRAM_nCAS, // columns address select
     output  wire                                SDRAM_CKE,
-`endif// !FORMAL
 
 	// cpu/chipset interface
 	input   wire                                clk,        // sdram clock
@@ -80,6 +78,7 @@ module sdram_arbiter(
     input   wire    [21:0]                      memory_addr_cpu,
     input   wire                                loader_write_mem,
     input   wire                                memory_write_cpu,
+    input   wire    [31:0]                      rv_wdata,
 
     // WRAM
     input   wire                                i_wram_load_ongoing
