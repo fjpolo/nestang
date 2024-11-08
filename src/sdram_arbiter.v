@@ -72,42 +72,31 @@ module sdram_arbiter #(
     output  reg                                 rv_req_ack,   // ready for new requests. read data available on NEXT mclk
     input   wire                                rv_we,
 
-    // 
-    input   wire                                loading,
-    input   wire    [21:0]                      loader_addr_mem,
-    input   wire                                loader_write_mem,
-    input   wire    [7:0]                       loader_write_data_mem,
-    input   wire    [21:0]                      memory_addr_cpu,
-    input   wire                                memory_write_cpu,
-    input   wire                                memory_read_cpu,
-    input   wire    [31:0]                      rv_wdata,
-    input   wire    [7:0]                       memory_dout_cpu,
-    output  wire    [7:0]                       memory_din_cpu,
-
-
     // WRAM
     input   wire                                i_wram_load_ongoing
 );
 // From sdram_nes.v or sdram_sim.v
+reg [7:0] r_dout_cpu;
+reg [16:0] r_dout_rv;
 sdram_nes sdram (
-    .clk(fclk), .clkref(clkref), .resetn(sys_resetn), .busy(sdram_busy),
+    .clk(clk), .clkref(clkref), .resetn(resetn), .busy(busy),
 
-    .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), 
-    .SDRAM_nCS(O_sdram_cs_n), .SDRAM_nWE(O_sdram_wen_n), .SDRAM_nRAS(O_sdram_ras_n), 
-    .SDRAM_nCAS(O_sdram_cas_n), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm), 
+    .SDRAM_DQ(SDRAM_DQ), .SDRAM_A(SDRAM_A), .SDRAM_BA(SDRAM_BA), 
+    .SDRAM_nCS(SDRAM_nCS), .SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS), 
+    .SDRAM_nCAS(SDRAM_nCAS), .SDRAM_CKE(SDRAM_CKE), .SDRAM_DQM(SDRAM_DQM), 
 
     // PPU
-    .addrA(memory_addr_ppu), .weA(memory_write_ppu), .dinA(memory_dout_ppu),
-    .oeA(memory_read_ppu), .doutA(memory_din_ppu),
+    .addrA(addrA), .weA(weA), .dinA(dinA),
+    .oeA(oeA), .doutA(doutA),
 
     // CPU
-    .addrB(loading ? loader_addr_mem : memory_addr_cpu), .weB(loader_write_mem || memory_write_cpu),
-    .dinB(loading ? loader_write_data_mem : memory_dout_cpu),
-    .oeB(~loading & memory_read_cpu), .doutB(memory_din_cpu),
+    .addrB(addrB), .weB(weB),
+    .dinB(dinB),
+    .oeB(oeB),
 
     // IOSys risc-v softcore
-    .rv_addr({rv_addr[20:2], rv_word}), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
-    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
+    .rv_addr({rv_addr[20:2], rv_word}), .rv_din(rv_din), 
+    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_we)
 );
 
 endmodule

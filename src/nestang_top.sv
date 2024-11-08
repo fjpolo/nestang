@@ -342,18 +342,6 @@ sdram_arbiter sdram_arbiter (
     .rv_addr(rv_addr), .rv_word(rv_word), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
     .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0),
 
-    //
-    .loading(loading),
-    .loader_addr_mem(loader_addr_mem),
-    .loader_write_mem(loader_write_mem),
-    .loader_write_data_mem(loader_write_data_mem),
-    .memory_addr_cpu(memory_addr_cpu),
-    .memory_write_cpu(memory_write_cpu),
-    .memory_read_cpu(memory_read_cpu),
-    .rv_wdata(rv_wdata),
-    .memory_dout_cpu(memory_dout_cpu),
-    .memory_din_cpu(memory_din_cpu),
-
     // WRAM
     .i_wram_load_ongoing(wram_load_bsram)
 );
