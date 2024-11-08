@@ -1,0 +1,118 @@
+<?xml version="1" encoding="UTF-8"?>
+<GAO_CONFIG>
+    <Version>3.0</Version>
+    <Mode>Lite</Mode>
+    <AoCore_Lite index="0" sample_clock="clk27" trig_type="0" capture_amount="1024" implemention="0" input_register_enabled="0" capture_init_data_enabled="0" module_name="nestang_top">
+        <SignalList>
+            <Signal capture_enable="true">sdram_arbiter/i_wram_load_ongoing</Signal>
+            <Signal capture_enable="true">sdram_arbiter/cpu_address_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/cpu_we_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/cpu_re_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/cpu_req_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/rv_address_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/rv_we</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/rv_din[7:0]">
+                <Signal>sdram_arbiter/rv_din[7]</Signal>
+                <Signal>sdram_arbiter/rv_din[6]</Signal>
+                <Signal>sdram_arbiter/rv_din[5]</Signal>
+                <Signal>sdram_arbiter/rv_din[4]</Signal>
+                <Signal>sdram_arbiter/rv_din[3]</Signal>
+                <Signal>sdram_arbiter/rv_din[2]</Signal>
+                <Signal>sdram_arbiter/rv_din[1]</Signal>
+                <Signal>sdram_arbiter/rv_din[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/rv_we_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/rv_re_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/rv_req_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/address_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/we_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/re_is_wram</Signal>
+            <Signal capture_enable="true">sdram_arbiter/req_is_wram</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/r_wram_din[7:0]">
+                <Signal>sdram_arbiter/r_wram_din[7]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[6]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[5]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[4]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[3]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[2]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[1]</Signal>
+                <Signal>sdram_arbiter/r_wram_din[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/wram_din[7:0]">
+                <Signal>sdram_arbiter/wram_din[7]</Signal>
+                <Signal>sdram_arbiter/wram_din[6]</Signal>
+                <Signal>sdram_arbiter/wram_din[5]</Signal>
+                <Signal>sdram_arbiter/wram_din[4]</Signal>
+                <Signal>sdram_arbiter/wram_din[3]</Signal>
+                <Signal>sdram_arbiter/wram_din[2]</Signal>
+                <Signal>sdram_arbiter/wram_din[1]</Signal>
+                <Signal>sdram_arbiter/wram_din[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/r_wram_dout[7:0]">
+                <Signal>sdram_arbiter/r_wram_dout[7]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[6]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[5]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[4]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[3]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[2]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[1]</Signal>
+                <Signal>sdram_arbiter/r_wram_dout[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/r_wram_address[15:0]">
+                <Signal>sdram_arbiter/r_wram_address[15]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[14]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[13]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[12]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[11]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[10]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[9]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[8]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[7]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[6]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[5]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[4]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[3]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[2]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[1]</Signal>
+                <Signal>sdram_arbiter/r_wram_address[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/wram_address[15:0]">
+                <Signal>sdram_arbiter/wram_address[15]</Signal>
+                <Signal>sdram_arbiter/wram_address[14]</Signal>
+                <Signal>sdram_arbiter/wram_address[13]</Signal>
+                <Signal>sdram_arbiter/wram_address[12]</Signal>
+                <Signal>sdram_arbiter/wram_address[11]</Signal>
+                <Signal>sdram_arbiter/wram_address[10]</Signal>
+                <Signal>sdram_arbiter/wram_address[9]</Signal>
+                <Signal>sdram_arbiter/wram_address[8]</Signal>
+                <Signal>sdram_arbiter/wram_address[7]</Signal>
+                <Signal>sdram_arbiter/wram_address[6]</Signal>
+                <Signal>sdram_arbiter/wram_address[5]</Signal>
+                <Signal>sdram_arbiter/wram_address[4]</Signal>
+                <Signal>sdram_arbiter/wram_address[3]</Signal>
+                <Signal>sdram_arbiter/wram_address[2]</Signal>
+                <Signal>sdram_arbiter/wram_address[1]</Signal>
+                <Signal>sdram_arbiter/wram_address[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/wram_bsram_index[15:0]">
+                <Signal>sdram_arbiter/wram_bsram_index[15]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[14]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[13]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[12]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[11]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[10]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[9]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[8]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[7]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[6]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[5]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[4]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[3]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[2]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[1]</Signal>
+                <Signal>sdram_arbiter/wram_bsram_index[0]</Signal>
+            </Bus>
+        </SignalList>
+    </AoCore_Lite>
+    <GAO_ID>1100100010001100</GAO_ID>
+</GAO_CONFIG>

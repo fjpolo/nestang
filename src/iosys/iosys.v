@@ -1,4 +1,4 @@
-// IOSys - PicoRV32-based IO subsystem for snestang
+// IOSys - PicoRV32-based IO subsystem for sostang
 //
 // IOSys provides the following functionality,
 // - Menu system
@@ -10,7 +10,7 @@
 // This is similar to the IO controller of MIST, or HPS of MiSTer.
 //
 // The softcore runs RV32I at 21.6Mhz and uses SDRAM as main memory. Firmware is 
-// loaded from SPI flash on the board. Firmware source is in /snestang/firmware.
+// loaded from SPI flash on the board. Firmware source is in /sostang/firmware.
 // 
 // Author: nand2mario, 1/2024
 
@@ -31,10 +31,9 @@
 `define PICOSOC_V
 
 module iosys #(
-    `include "wishbone_slaves.vh",
     parameter FREQ=21_477_000,
     parameter [14:0] COLOR_LOGO=15'b00000_10101_00000,
-    parameter [15:0] CORE_ID=1      // 1: nestang, 2: snestang
+    parameter [15:0] CORE_ID=0      // 0: ostang, 1: nestang, 2: sostang
 )
 (
     input clk,                      // SNES mclk

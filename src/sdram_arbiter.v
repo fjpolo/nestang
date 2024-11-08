@@ -71,7 +71,70 @@ module sdram_arbiter(
     input   wire                                i_wram_load_ongoing
 );
 
+//
+// WRAM BSRAM
+//
+`ifdef FORMAL
+reg [7:0] wram_bsram[0:(8*1024)];
+`else
+(* ram_style = "block" *)   reg [7:0] wram_bsram[0:(8*1024)];   /* synthesis syn_keep=1 */
+`endif
+wire [15:0] addrB                   = (i_rom_loading ? i_loader_addr_mem : i_memory_addr_cpu);
+wire        weB                     = ((i_loader_write_mem)||(i_memory_write_cpu));
+wire        dinB                    = (i_rom_loading ? i_loader_write_data_mem : i_memory_din_sdram_cpu_dout);
+wire        oeB                     = ((~i_rom_loading)&(i_memory_read_cpu));
+wire [7:0]  doutB                   = (o_memory_dout_sdram_cpu_din);
+wire        cpu_address_is_wram     = ((addrB >= 'h6000)&&(addrB <= 'h8000));
+wire        cpu_we_is_wram          = ((weB)&&(cpu_address_is_wram));
+wire        cpu_re_is_wram          = ((oeB)&&(cpu_address_is_wram));
+wire        cpu_req_is_wram         = ((cpu_we_is_wram)||(cpu_re_is_wram))&&(cpu_address_is_wram);
+wire        rv_address_is_wram      = ((i_rv_addr >= 'h66000)&&(i_rv_addr <= 'h68000));
+wire        rv_we                   = (i_rv_wstrb != 0);
+wire [7:0]  rv_din                  = (i_rv_word ? i_rv_wdata[31:16] : i_rv_wdata[15:0]);
+wire        rv_we_is_wram           = ((rv_we)&&(rv_address_is_wram));
+wire        rv_re_is_wram           = ((!rv_we)&&(rv_address_is_wram));
+wire        rv_req_is_wram          = ((rv_we_is_wram)||(rv_re_is_wram))&&(i_rv_req)&&(rv_address_is_wram);
+wire        address_is_wram         = ((cpu_address_is_wram)|(rv_we_is_wram));
+wire        we_is_wram              = ((cpu_we_is_wram)|(rv_we_is_wram));
+wire        re_is_wram              = ((cpu_re_is_wram)|(rv_re_is_wram));
+wire        req_is_wram             = ((cpu_req_is_wram)|(rv_req_is_wram));
+reg  [7:0]  r_wram_din;
+wire [7:0]  wram_din                = cpu_we_is_wram ? dinB : ((rv_req_is_wram)&&(rv_we_is_wram)) ? rv_din[7:0] : r_wram_din;
+reg  [7:0]  r_wram_dout;
+reg  [15:0] r_wram_address;
+wire [15:0] wram_address            = (((cpu_we_is_wram)||(cpu_re_is_wram))&&(!i_wram_load_ongoing)) ? addrB : ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0]: r_wram_address;
+wire [15:0] wram_bsram_index        = wram_address - 15'h6000;
+
+// Write
+always @(posedge i_clk) begin
+    if((req_is_wram)&&(we_is_wram))
+        wram_bsram[wram_bsram_index] <= wram_din;
+end
+
+// Read
+always @(posedge i_clk) begin
+    if((req_is_wram)&&(re_is_wram))
+        r_wram_dout <= wram_bsram[wram_bsram_index];
+end
+
+always @(posedge i_clk)
+    r_wram_din <= wram_din;
+
+always @(posedge i_clk)
+    r_wram_address <= wram_address;
+
+//
+// Output
+//
+// assign o_memory_dout_sdram_cpu_din = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
+// assign o_rv_dout = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
+assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
+assign o_rv_dout = sdram_dout_rv;
+
+
 // From sdram_nes.v or sdram_sim.v
+wire [7:0] sdram_dout_cpu;
+wire [15:0] sdram_dout_rv;
 sdram_nes sdram (
     .clk(i_clk),
     .clkref(i_clkref),
@@ -100,13 +163,15 @@ sdram_nes sdram (
     .weB((i_loader_write_mem)||(i_memory_write_cpu)),
     .dinB(i_rom_loading ? i_loader_write_data_mem : i_memory_din_sdram_cpu_dout),
     .oeB((~i_rom_loading)&(i_memory_read_cpu)),
-    .doutB(o_memory_dout_sdram_cpu_din),
+    // .doutB(o_memory_dout_sdram_cpu_din),
+    .doutB(sdram_dout_cpu),
 
     // IOSys risc-v softcore
     .rv_addr({i_rv_addr[20:2], i_rv_word}),
     .rv_din(i_rv_word ? i_rv_wdata[31:16] : i_rv_wdata[15:0]),
     .rv_ds(i_rv_ds),
-    .rv_dout(o_rv_dout),
+    // .rv_dout(o_rv_dout),
+    .rv_dout(sdram_dout_rv),
     .rv_req(i_rv_req),
     .rv_req_ack(o_rv_req_ack),
     .rv_we(i_rv_wstrb != 0)

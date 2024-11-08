@@ -1,0 +1,354 @@
+<?xml version="1" encoding="UTF-8"?>
+<GAO_CONFIG>
+    <Version>3.0</Version>
+    <Mode>Lite</Mode>
+    <AoCore_Lite index="0" sample_clock="clk27" trig_type="0" capture_amount="1024" implemention="0" input_register_enabled="1" capture_init_data_enabled="1" module_name="nestang_top">
+        <SignalList>
+            <Bus capture_enable="true" name="IO_sdram_dq[31:0]">
+                <Signal>IO_sdram_dq[31]</Signal>
+                <Signal>IO_sdram_dq[30]</Signal>
+                <Signal>IO_sdram_dq[29]</Signal>
+                <Signal>IO_sdram_dq[28]</Signal>
+                <Signal>IO_sdram_dq[27]</Signal>
+                <Signal>IO_sdram_dq[26]</Signal>
+                <Signal>IO_sdram_dq[25]</Signal>
+                <Signal>IO_sdram_dq[24]</Signal>
+                <Signal>IO_sdram_dq[23]</Signal>
+                <Signal>IO_sdram_dq[22]</Signal>
+                <Signal>IO_sdram_dq[21]</Signal>
+                <Signal>IO_sdram_dq[20]</Signal>
+                <Signal>IO_sdram_dq[19]</Signal>
+                <Signal>IO_sdram_dq[18]</Signal>
+                <Signal>IO_sdram_dq[17]</Signal>
+                <Signal>IO_sdram_dq[16]</Signal>
+                <Signal>IO_sdram_dq[15]</Signal>
+                <Signal>IO_sdram_dq[14]</Signal>
+                <Signal>IO_sdram_dq[13]</Signal>
+                <Signal>IO_sdram_dq[12]</Signal>
+                <Signal>IO_sdram_dq[11]</Signal>
+                <Signal>IO_sdram_dq[10]</Signal>
+                <Signal>IO_sdram_dq[9]</Signal>
+                <Signal>IO_sdram_dq[8]</Signal>
+                <Signal>IO_sdram_dq[7]</Signal>
+                <Signal>IO_sdram_dq[6]</Signal>
+                <Signal>IO_sdram_dq[5]</Signal>
+                <Signal>IO_sdram_dq[4]</Signal>
+                <Signal>IO_sdram_dq[3]</Signal>
+                <Signal>IO_sdram_dq[2]</Signal>
+                <Signal>IO_sdram_dq[1]</Signal>
+                <Signal>IO_sdram_dq[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/io_sdram_dq[31:0]">
+                <Signal>sdram_arbiter/io_sdram_dq[31]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[30]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[29]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[28]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[27]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[26]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[25]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[24]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[23]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[22]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[21]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[20]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[19]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[18]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[17]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[16]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[15]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[14]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[13]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[12]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[11]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[10]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[9]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[8]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[7]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[6]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[5]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[4]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[3]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[2]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[1]</Signal>
+                <Signal>sdram_arbiter/io_sdram_dq[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="O_sdram_addr[10:0]">
+                <Signal>O_sdram_addr[10]</Signal>
+                <Signal>O_sdram_addr[9]</Signal>
+                <Signal>O_sdram_addr[8]</Signal>
+                <Signal>O_sdram_addr[7]</Signal>
+                <Signal>O_sdram_addr[6]</Signal>
+                <Signal>O_sdram_addr[5]</Signal>
+                <Signal>O_sdram_addr[4]</Signal>
+                <Signal>O_sdram_addr[3]</Signal>
+                <Signal>O_sdram_addr[2]</Signal>
+                <Signal>O_sdram_addr[1]</Signal>
+                <Signal>O_sdram_addr[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/o_sdram_addr[31:0]">
+                <Signal>sdram_arbiter/o_sdram_addr[31]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[30]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[29]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[28]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[27]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[26]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[25]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[24]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[23]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[22]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[21]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[20]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[19]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[18]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[17]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[16]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[15]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[14]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[13]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[12]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[11]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[10]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[9]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[8]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[7]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[6]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[5]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[4]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[3]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[2]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[1]</Signal>
+                <Signal>sdram_arbiter/o_sdram_addr[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="O_sdram_ba[1:0]">
+                <Signal>O_sdram_ba[1]</Signal>
+                <Signal>O_sdram_ba[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/o_sdram_ba[1:0]">
+                <Signal>sdram_arbiter/o_sdram_ba[1]</Signal>
+                <Signal>sdram_arbiter/o_sdram_ba[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">O_sdram_cs_n</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_sdram_cs_n</Signal>
+            <Signal capture_enable="true">O_sdram_wen_n</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_sdram_wen_n</Signal>
+            <Signal capture_enable="true">O_sdram_ras_n</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_sdram_ras_n</Signal>
+            <Signal capture_enable="true">O_sdram_cas_n</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_sdram_cas_n</Signal>
+            <Signal capture_enable="true">O_sdram_cke</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_sdram_cke</Signal>
+            <Bus capture_enable="true" name="O_sdram_dqm[3:0]">
+                <Signal>O_sdram_dqm[3]</Signal>
+                <Signal>O_sdram_dqm[2]</Signal>
+                <Signal>O_sdram_dqm[1]</Signal>
+                <Signal>O_sdram_dqm[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/o_sdram_dqm[3:0]">
+                <Signal>sdram_arbiter/o_sdram_dqm[3]</Signal>
+                <Signal>sdram_arbiter/o_sdram_dqm[2]</Signal>
+                <Signal>sdram_arbiter/o_sdram_dqm[1]</Signal>
+                <Signal>sdram_arbiter/o_sdram_dqm[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/addrA[21:0]">
+                <Signal>sdram_arbiter/sdram/addrA[21]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[20]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[19]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[18]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[17]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[16]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[15]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[14]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[13]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[12]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[11]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[10]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[9]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[8]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[7]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[6]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[5]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[4]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[3]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[2]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[1]</Signal>
+                <Signal>sdram_arbiter/sdram/addrA[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_memory_addr_ppu[21:0]">
+                <Signal>sdram_arbiter/i_memory_addr_ppu[21]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[20]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[19]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[18]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[17]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[16]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[15]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[14]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[13]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[12]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[11]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[10]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[9]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[8]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[7]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[6]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[5]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[4]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[3]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[2]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[1]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_ppu[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/sdram/weA</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_memory_write_ppu</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/dinA[7:0]">
+                <Signal>sdram_arbiter/sdram/dinA[7]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[6]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[5]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[4]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[3]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[2]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[1]</Signal>
+                <Signal>sdram_arbiter/sdram/dinA[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_memory_sdram_din_ppu_dout[7:0]">
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[7]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[6]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[5]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[4]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[3]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[2]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[1]</Signal>
+                <Signal>sdram_arbiter/i_memory_sdram_din_ppu_dout[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/sdram/oeA</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_memory_read_ppu</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/doutA[7:0]">
+                <Signal>sdram_arbiter/sdram/doutA[7]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[6]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[5]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[4]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[3]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[2]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[1]</Signal>
+                <Signal>sdram_arbiter/sdram/doutA[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/o_memory_sdram_dout_ppu_din[7:0]">
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[7]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[6]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[5]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[4]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[3]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[2]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[1]</Signal>
+                <Signal>sdram_arbiter/o_memory_sdram_dout_ppu_din[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/i_rom_loading</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/addrB[21:0]">
+                <Signal>sdram_arbiter/sdram/addrB[21]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[20]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[19]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[18]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[17]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[16]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[15]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[14]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[13]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[12]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[11]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[10]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[9]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[8]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[7]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[6]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[5]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[4]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[3]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[2]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[1]</Signal>
+                <Signal>sdram_arbiter/sdram/addrB[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_loader_addr_mem[21:0]">
+                <Signal>sdram_arbiter/i_loader_addr_mem[21]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[20]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[19]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[18]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[17]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[16]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[15]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[14]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[13]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[12]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[11]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[10]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[9]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[8]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[7]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[6]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[5]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[4]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[3]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[2]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[1]</Signal>
+                <Signal>sdram_arbiter/i_loader_addr_mem[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_memory_addr_cpu[21:0]">
+                <Signal>sdram_arbiter/i_memory_addr_cpu[21]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[20]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[19]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[18]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[17]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[16]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[15]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[14]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[13]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[12]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[11]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[10]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[9]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[8]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[7]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[6]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[5]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[4]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[3]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[2]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[1]</Signal>
+                <Signal>sdram_arbiter/i_memory_addr_cpu[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/sdram/weB</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_memory_write_cpu</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/dinB[7:0]">
+                <Signal>sdram_arbiter/sdram/dinB[7]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[6]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[5]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[4]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[3]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[2]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[1]</Signal>
+                <Signal>sdram_arbiter/sdram/dinB[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_loader_write_data_mem[7:0]">
+                <Signal>sdram_arbiter/i_loader_write_data_mem[7]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[6]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[5]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[4]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[3]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[2]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[1]</Signal>
+                <Signal>sdram_arbiter/i_loader_write_data_mem[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_memory_din_sdram_cpu_dout[7:0]">
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[7]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[6]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[5]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[4]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[3]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[2]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[1]</Signal>
+                <Signal>sdram_arbiter/i_memory_din_sdram_cpu_dout[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/sdram/oeB</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_memory_read_cpu</Signal>
+        </SignalList>
+    </AoCore_Lite>
+    <GAO_ID>1001001010110110</GAO_ID>
+</GAO_CONFIG>
