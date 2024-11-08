@@ -299,50 +299,48 @@ always @(posedge clk) begin
         mapper_flags <= loader_flags;
 end
 
-// // From sdram_nes.v or sdram_sim.v
-// sdram_nes sdram (
-//     .clk(fclk), .clkref(clkref), .resetn(sys_resetn), .busy(sdram_busy),
-
-//     .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), 
-//     .SDRAM_nCS(O_sdram_cs_n), .SDRAM_nWE(O_sdram_wen_n), .SDRAM_nRAS(O_sdram_ras_n), 
-//     .SDRAM_nCAS(O_sdram_cas_n), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm), 
-
-//     // PPU
-//     .addrA(memory_addr_ppu), .weA(memory_write_ppu), .dinA(memory_dout_ppu),
-//     .oeA(memory_read_ppu), .doutA(memory_din_ppu),
-
-//     // CPU
-//     .addrB(loading ? loader_addr_mem : memory_addr_cpu), .weB(loader_write_mem || memory_write_cpu),
-//     .dinB(loading ? loader_write_data_mem : memory_dout_cpu),
-//     .oeB(~loading & memory_read_cpu), .doutB(memory_din_cpu),
-
-//     // IOSys risc-v softcore
-//     .rv_addr({rv_addr[20:2], rv_word}), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]),
-//     .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
-// );
-
 // sdram_arbiter
 sdram_arbiter sdram_arbiter (
-    .clk(fclk), .clkref(clkref), .resetn(sys_resetn), .busy(sdram_busy),
-
-    .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), 
-    .SDRAM_nCS(O_sdram_cs_n), .SDRAM_nWE(O_sdram_wen_n), .SDRAM_nRAS(O_sdram_ras_n), 
-    .SDRAM_nCAS(O_sdram_cas_n), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm), 
-
+    .i_clk(fclk),
+    .i_clkref(clkref),
+    .i_resetn(sys_resetn),
+    .o_sdram_busy(sdram_busy),
+    // SDRAM
+    .io_sdram_dq(IO_sdram_dq),
+    .o_sdram_addr(O_sdram_addr),
+    .o_sdram_ba(O_sdram_ba), 
+    .o_sdram_cs_n(O_sdram_cs_n),
+    .o_sdram_wen_n(O_sdram_wen_n),
+    .o_sdram_ras_n(O_sdram_ras_n), 
+    .o_sdram_cas_n(O_sdram_cas_n),
+    .o_sdram_cke(O_sdram_cke),
+    .o_sdram_dqm(O_sdram_dqm), 
     // PPU
-    .addrA(memory_addr_ppu), .weA(memory_write_ppu), .dinA(memory_dout_ppu),
-    .oeA(memory_read_ppu), .doutA(memory_din_ppu),
-
+    .i_memory_addr_ppu(memory_addr_ppu), 
+    .i_memory_write_ppu(memory_write_ppu), 
+    .i_memory_sdram_din_ppu_dout(memory_dout_ppu),
+    .i_memory_read_ppu(memory_read_ppu), 
+    .o_memory_sdram_dout_ppu_din(memory_din_ppu),
     // CPU
-    .addrB(loading ? loader_addr_mem : memory_addr_cpu), .weB(loader_write_mem || memory_write_cpu),
-    .dinB(loading ? loader_write_data_mem : memory_dout_cpu),
-    .oeB(~loading & memory_read_cpu), .doutB(memory_din_cpu),
-
+    .i_rom_loading(loading),
+    .i_loader_addr_mem(loader_addr_mem),
+    .i_loader_write_mem(loader_write_mem),
+    .i_memory_addr_cpu(memory_addr_cpu),
+    .i_memory_write_cpu(memory_write_cpu),
+    .i_loader_write_data_mem(loader_write_data_mem),
+    .i_memory_din_sdram_cpu_dout(memory_dout_cpu),
+    .i_memory_read_cpu(memory_read_cpu),
+    .o_memory_dout_sdram_cpu_din(memory_din_cpu),
     // IOSys risc-v softcore
-    .rv_addr(rv_addr), .rv_word(rv_word), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
-    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0),
-
-    // WRAM
+    .i_rv_addr(rv_addr),
+    .i_rv_word(rv_word),
+    .i_rv_wdata(rv_wdata),
+    .i_rv_ds(rv_ds),
+    .o_rv_dout(rv_dout),
+    .i_rv_req(rv_req),
+    .o_rv_req_ack(rv_req_ack),
+    .i_rv_wstrb(rv_wstrb),
+    // BSRAM control
     .i_wram_load_ongoing(wram_load_bsram)
 );
 
