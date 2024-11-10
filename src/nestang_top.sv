@@ -564,6 +564,8 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .o_reg_load_bsram(wram_load_bsram)
 );
 
+assign led[0] = ~wram_load_bsram;
+
 // Controller input
 `ifdef CONTROLLER_SNES
 controller_snes joy1_snes (
