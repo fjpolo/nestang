@@ -1,0 +1,194 @@
+<?xml version="1" encoding="UTF-8"?>
+<GAO_CONFIG>
+    <Version>3.0</Version>
+    <Mode>Lite</Mode>
+    <AoCore_Lite index="0" sample_clock="clk27" trig_type="0" capture_amount="2048" implemention="0" input_register_enabled="0" capture_init_data_enabled="0" module_name="nestang_top">
+        <SignalList>
+            <Signal capture_enable="true">sdram_arbiter/i_clk</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_clkref</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_resetn</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_sdram_busy</Signal>
+            <Bus capture_enable="true" name="rv_addr[22:0]">
+                <Signal>rv_addr[22]</Signal>
+                <Signal>rv_addr[21]</Signal>
+                <Signal>rv_addr[20]</Signal>
+                <Signal>rv_addr[19]</Signal>
+                <Signal>rv_addr[18]</Signal>
+                <Signal>rv_addr[17]</Signal>
+                <Signal>rv_addr[16]</Signal>
+                <Signal>rv_addr[15]</Signal>
+                <Signal>rv_addr[14]</Signal>
+                <Signal>rv_addr[13]</Signal>
+                <Signal>rv_addr[12]</Signal>
+                <Signal>rv_addr[11]</Signal>
+                <Signal>rv_addr[10]</Signal>
+                <Signal>rv_addr[9]</Signal>
+                <Signal>rv_addr[8]</Signal>
+                <Signal>rv_addr[7]</Signal>
+                <Signal>rv_addr[6]</Signal>
+                <Signal>rv_addr[5]</Signal>
+                <Signal>rv_addr[4]</Signal>
+                <Signal>rv_addr[3]</Signal>
+                <Signal>rv_addr[2]</Signal>
+                <Signal>rv_addr[1]</Signal>
+                <Signal>rv_addr[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_rv_addr[22:0]">
+                <Signal>sdram_arbiter/i_rv_addr[22]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[21]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[20]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[19]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[18]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[17]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[16]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[15]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[14]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[13]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[12]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[11]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[10]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[9]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[8]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[7]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[6]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[5]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[4]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[3]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[2]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[1]</Signal>
+                <Signal>sdram_arbiter/i_rv_addr[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/rv_addr[20:1]">
+                <Signal>sdram_arbiter/sdram/rv_addr[20]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[19]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[18]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[17]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[16]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[15]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[14]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[13]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[12]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[11]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[10]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[9]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[8]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[7]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[6]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[5]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[4]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[3]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[2]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_addr[1]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/i_rv_word</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/i_rv_wdata[31:0]">
+                <Signal>sdram_arbiter/i_rv_wdata[31]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[30]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[29]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[28]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[27]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[26]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[25]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[24]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[23]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[22]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[21]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[20]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[19]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[18]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[17]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[16]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[15]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[14]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[13]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[12]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[11]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[10]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[9]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[8]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[7]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[6]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[5]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[4]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[3]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[2]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[1]</Signal>
+                <Signal>sdram_arbiter/i_rv_wdata[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/rv_din[15:0]">
+                <Signal>sdram_arbiter/sdram/rv_din[15]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[14]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[13]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[12]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[11]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[10]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[9]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[8]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[7]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[6]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[5]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[4]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[3]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[2]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[1]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_din[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/i_rv_ds[1:0]">
+                <Signal>sdram_arbiter/i_rv_ds[1]</Signal>
+                <Signal>sdram_arbiter/i_rv_ds[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="rv_ds[1:0]">
+                <Signal>rv_ds[1]</Signal>
+                <Signal>rv_ds[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/o_rv_dout[15:0]">
+                <Signal>sdram_arbiter/o_rv_dout[15]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[14]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[13]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[12]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[11]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[10]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[9]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[8]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[7]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[6]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[5]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[4]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[3]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[2]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[1]</Signal>
+                <Signal>sdram_arbiter/o_rv_dout[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="sdram_arbiter/sdram/rv_dout[15:0]">
+                <Signal>sdram_arbiter/sdram/rv_dout[15]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[14]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[13]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[12]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[11]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[10]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[9]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[8]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[7]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[6]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[5]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[4]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[3]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[2]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[1]</Signal>
+                <Signal>sdram_arbiter/sdram/rv_dout[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/i_rv_req</Signal>
+            <Signal capture_enable="true">sdram_arbiter/sdram/rv_req</Signal>
+            <Signal capture_enable="true">sdram_arbiter/o_rv_req_ack</Signal>
+            <Signal capture_enable="true">sdram_arbiter/sdram/rv_req_ack</Signal>
+            <Bus capture_enable="true" name="sdram_arbiter/i_rv_wstrb[3:0]">
+                <Signal>sdram_arbiter/i_rv_wstrb[3]</Signal>
+                <Signal>sdram_arbiter/i_rv_wstrb[2]</Signal>
+                <Signal>sdram_arbiter/i_rv_wstrb[1]</Signal>
+                <Signal>sdram_arbiter/i_rv_wstrb[0]</Signal>
+            </Bus>
+            <Signal capture_enable="true">sdram_arbiter/sdram/rv_we</Signal>
+        </SignalList>
+    </AoCore_Lite>
+    <GAO_ID>1000011100110011</GAO_ID>
+</GAO_CONFIG>
