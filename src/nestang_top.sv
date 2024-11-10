@@ -299,6 +299,8 @@ always @(posedge clk) begin
         mapper_flags <= loader_flags;
 end
 
+`define USE_SDRAM_ARBITER
+`ifdef USE_SDRAM_ARBITER
 // sdram_arbiter
 sdram_arbiter sdram_arbiter (
     .i_clk(fclk),
@@ -343,6 +345,26 @@ sdram_arbiter sdram_arbiter (
     // BSRAM control
     .i_wram_load_ongoing(wram_load_bsram)
 );
+`else
+// From sdram_nes.v or sdram_sim.v
+sdram_nes sdram (
+    .clk(fclk), .clkref(clkref), .resetn(sys_resetn), .busy(sdram_busy),
+
+    .SDRAM_DQ(IO_sdram_dq), .SDRAM_A(O_sdram_addr), .SDRAM_BA(O_sdram_ba), 
+    .SDRAM_nCS(O_sdram_cs_n), .SDRAM_nWE(O_sdram_wen_n), .SDRAM_nRAS(O_sdram_ras_n), 
+    .SDRAM_nCAS(O_sdram_cas_n), .SDRAM_CKE(O_sdram_cke), .SDRAM_DQM(O_sdram_dqm), 
+    // PPU
+    .addrA(memory_addr_ppu), .weA(memory_write_ppu), .dinA(memory_dout_ppu),
+    .oeA(memory_read_ppu), .doutA(memory_din_ppu),
+    // CPU
+    .addrB(loading ? loader_addr_mem : memory_addr_cpu), .weB(loader_write_mem || memory_write_cpu),
+    .dinB(loading ? loader_write_data_mem : memory_dout_cpu),
+    .oeB(~loading & memory_read_cpu), .doutB(memory_din_cpu),
+    // IOSys risc-v softcore
+    .rv_addr({rv_addr[20:2], rv_word}), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
+    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
+    );
+`endif // USE_SDRAM_ARBITER
 
 // ROM parser
 GameLoader loader(
