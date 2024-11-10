@@ -20,7 +20,7 @@
 /*  Some assumptions:
 /*      - rv_req_ack comes from sdram_nes module, we only replace wv_dout
 *******************************************************************/
-`default_nettype none
+// `default_nettype none
 import configPackage::*;
 
 module sdram_arbiter(    
