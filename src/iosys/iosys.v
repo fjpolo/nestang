@@ -138,9 +138,9 @@ wire spiflash_reg_wait;
 
 // BSRAM - Use internal BRAM
 localparam NES_BSRAM_SIZE = 32'h2000;
-reg [7:0] reg_save_bsram;
-reg [7:0] reg_load_bsram;
 reg [7:0] reg_bsram [NES_BSRAM_SIZE-1:0];
+reg       reg_save_bsram;
+reg       reg_load_bsram;
 
 always @(posedge clk) begin
     if (~resetn) begin
@@ -603,6 +603,15 @@ end
 assign o_reg_aspect_ratio = reg_aspect_ratio;
 
 // reg_load_bsram
+initial reg_load_bsram = 0;
+always @(posedge clk) begin
+    if(~resetn)
+        reg_load_bsram <= 1'b0;
+    else begin
+        if(mem_addr == 32'h0200_01A0)
+            reg_load_bsram <= mem_wdata[0];
+    end
+end
 assign o_reg_load_bsram = reg_load_bsram;
 
 // Timer Interrupts

@@ -126,10 +126,10 @@ always @(posedge i_clk)
 //
 // Output
 //
-// assign o_memory_dout_sdram_cpu_din = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
-// assign o_rv_dout = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
-assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
-assign o_rv_dout = sdram_dout_rv;
+assign o_memory_dout_sdram_cpu_din  = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
+assign o_rv_dout                    = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
+// assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
+// assign o_rv_dout = sdram_dout_rv;
 
 
 // From sdram_nes.v or sdram_sim.v
