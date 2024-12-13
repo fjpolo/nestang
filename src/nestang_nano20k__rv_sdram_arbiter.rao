@@ -2,12 +2,9 @@
 <GAO_CONFIG>
     <Version>3.0</Version>
     <Mode>Lite</Mode>
-    <AoCore_Lite index="0" sample_clock="clk27" trig_type="0" capture_amount="512" implemention="0" input_register_enabled="0" capture_init_data_enabled="0" module_name="nestang_top">
+    <AoCore_Lite index="0" sample_clock="clk27" trig_type="0" capture_amount="1024" implemention="0" input_register_enabled="0" capture_init_data_enabled="0" module_name="nestang_top">
         <SignalList>
-            <Signal capture_enable="true">sdram_arbiter/i_clk</Signal>
-            <Signal capture_enable="true">sdram_arbiter/i_clkref</Signal>
-            <Signal capture_enable="true">sdram_arbiter/i_resetn</Signal>
-            <Signal capture_enable="true">sdram_arbiter/o_sdram_busy</Signal>
+            <Signal capture_enable="true">sdram_arbiter/i_wram_load_ongoing</Signal>
             <Bus capture_enable="true" name="rv_addr[22:0]">
                 <Signal>rv_addr[22]</Signal>
                 <Signal>rv_addr[21]</Signal>
@@ -190,5 +187,5 @@
             <Signal capture_enable="true">sdram_arbiter/sdram/rv_we</Signal>
         </SignalList>
     </AoCore_Lite>
-    <GAO_ID>1111101001000111</GAO_ID>
+    <GAO_ID>1010100000100000</GAO_ID>
 </GAO_CONFIG>

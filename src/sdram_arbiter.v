@@ -99,11 +99,17 @@ wire        we_is_wram              = ((cpu_we_is_wram)|(rv_we_is_wram));
 wire        re_is_wram              = ((cpu_re_is_wram)|(rv_re_is_wram));
 wire        req_is_wram             = ((cpu_req_is_wram)|(rv_req_is_wram));
 reg  [7:0]  r_wram_din;
-wire [7:0]  wram_din                = cpu_we_is_wram ? dinB : ((rv_req_is_wram)&&(rv_we_is_wram)) ? rv_din[7:0] : r_wram_din;
+// wire [7:0]  wram_din                = cpu_we_is_wram ? dinB : ((rv_req_is_wram)&&(rv_we_is_wram)) ? rv_din[7:0] : r_wram_din;
+wire [7:0]  wram_din                = ((rv_req_is_wram)&&(rv_we_is_wram)&&(!cpu_we_is_wram)) ? rv_din[7:0] : dinB;
 reg  [7:0]  r_wram_dout;
 reg  [15:0] r_wram_address;
-wire [15:0] wram_address            = (((cpu_we_is_wram)||(cpu_re_is_wram))&&(!i_wram_load_ongoing)) ? addrB : ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0]: r_wram_address;
-wire [15:0] wram_bsram_index        = wram_address - 15'h6000;
+// wire [15:0] wram_address            = (((cpu_we_is_wram)||(cpu_re_is_wram))&&(!i_wram_load_ongoing)) ? addrB : ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0]: r_wram_address;
+wire [15:0] wram_address            = i_wram_load_ongoing ?
+                                                                ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0] : addrB
+
+                                                            : addrB;        
+//wire [15:0] wram_bsram_index        = rv_req_is_wram ? (wram_address - 15'h66000) : (wram_address - 15'h6000) ;
+wire [15:0] wram_bsram_index        = (wram_address >= 'h6000) ? (wram_address - 15'h6000) : 'h0;
 
 // Write
 always @(posedge i_clk) begin
@@ -126,11 +132,14 @@ always @(posedge i_clk)
 //
 // Output
 //
-assign o_memory_dout_sdram_cpu_din  = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
-assign o_rv_dout                    = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
-// assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
-// assign o_rv_dout = sdram_dout_rv;
-
+// // assign o_memory_dout_sdram_cpu_din  = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
+// // assign o_rv_dout                    = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
+// assign o_memory_dout_sdram_cpu_din  = (cpu_address_is_wram) ? r_wram_dout           : sdram_dout_cpu;
+// assign o_rv_dout                    = (rv_address_is_wram) ? {8'h0, r_wram_dout}    : sdram_dout_rv;
+assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
+assign o_rv_dout = sdram_dout_rv;
+// assign o_memory_dout_sdram_cpu_din  = ((cpu_address_is_wram)&&(o_rv_req_ack)) ? r_wram_dout            : sdram_dout_cpu;
+// assign o_rv_dout                    = ((rv_address_is_wram)&&(o_rv_req_ack))  ? {8'h0, r_wram_dout}    : sdram_dout_rv;
 
 // From sdram_nes.v or sdram_sim.v
 wire [7:0] sdram_dout_cpu;
