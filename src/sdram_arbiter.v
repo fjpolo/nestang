@@ -2,17 +2,22 @@
 /*  SDRAM arbiter
 /*  @fjpolo, 2024.11
 /*
-/*  Problem: NES CPU and RV need to access a shared memory space: WRAM, with the current mapping:
+/*  Problem: NES CPU and RV need to access a shared memory space: WRAM, 
+/* with the current mapping:
 /*      - NES CPU: 16'h6000-16'h8000
-/*      - RV: 22'h66000-22'h68000 mapped to (22'h66000>1'b1)-(22'h58000>1'b1) in this module
+/*      - RV: 22'h66000-22'h68000 mapped to (22'h66000>1'b1)-(22'h58000>1'b1) 
+/* in this module
 /*  
-/*  This is a quick and dirty solution where a 8kB of BSRAM are used as a shared memory space for any access to this address region.
+/*  This is a quick and dirty solution where a 8kB of BSRAM are used as a 
+/* shared memory space for any access to this address region.
+/*
 /* sdram_nes module is not modified nor verified here.
 /*  
 /*  These are the properties that need to be formally proved:
 /*      - For any write operation, SDRAM is used for all regions
 /*      - For read operations, SDRAM is used for all regions but WRAM
-/*      - At any write to WRAM, CPU has priority over RV unless wram_load_ongoing is true (reg_load_bsram @0x020001A0 is true)
+/*      - At any write to WRAM, CPU has priority over RV unless wram_load_ongoing 
+/*       is true (reg_load_bsram @0x020001A0 is true)
 /*      - CPU and RV cannot write BSRAM at the same time
 /*      - If the address is inside WRAM region, either CPU or RV has priority
 /*      - A write to a region outside WRAM has no effect on WRAM BSRAM
@@ -70,51 +75,58 @@ module sdram_arbiter(
     // WRAM
     input   wire                                i_wram_load_ongoing
 );
+localparam NES_BSRAM_SIZE = 'h2000;
+localparam NES_BSRAM_STARTING_ADDRESS_RV  = 23'h0700_6000;
+localparam NES_BSRAM_LAST_ADDRESS_RV  = (NES_BSRAM_STARTING_ADDRESS_RV + NES_BSRAM_SIZE);
+localparam NES_BSRAM_STARTING_ADDRESS_NES = 16'h0000_6000;
+localparam NES_BSRAM_LAST_ADDRESS_NES = NES_BSRAM_STARTING_ADDRESS_NES + NES_BSRAM_SIZE;
 
 //
 // WRAM BSRAM
 //
 `ifdef FORMAL
-reg [7:0] wram_bsram[0:(8*1024)];
+reg [7:0] wram_bsram[0:(NES_BSRAM_SIZE-1)];
 `else
-(* ram_style = "block" *)   reg [7:0] wram_bsram[0:(8*1024)];   /* synthesis syn_keep=1 */
+(* ram_style = "block" *)   reg [7:0] wram_bsram[0:(NES_BSRAM_SIZE-1)];   /* synthesis syn_keep=1 */
 `endif
+// Logic for CPU SRAM controller
 wire [15:0] addrB                   = (i_rom_loading ? i_loader_addr_mem : i_memory_addr_cpu);
 wire        weB                     = ((i_loader_write_mem)||(i_memory_write_cpu));
 wire        dinB                    = (i_rom_loading ? i_loader_write_data_mem : i_memory_din_sdram_cpu_dout);
 wire        oeB                     = ((~i_rom_loading)&(i_memory_read_cpu));
 wire [7:0]  doutB                   = (o_memory_dout_sdram_cpu_din);
-wire        cpu_address_is_wram     = ((addrB >= 'h6000)&&(addrB <= 'h8000));
+// Logic for CPU SRAM arbiter
+wire        cpu_address_is_wram     = ((addrB >= NES_BSRAM_STARTING_ADDRESS_NES)&&(addrB <= NES_BSRAM_LAST_ADDRESS_NES));
 wire        cpu_we_is_wram          = ((weB)&&(cpu_address_is_wram));
 wire        cpu_re_is_wram          = ((oeB)&&(cpu_address_is_wram));
-wire        cpu_req_is_wram         = ((cpu_we_is_wram)||(cpu_re_is_wram))&&(cpu_address_is_wram);
-wire        rv_address_is_wram      = ((i_rv_addr >= 'h66000)&&(i_rv_addr <= 'h68000));
+wire        cpu_req_is_wram         = ((cpu_we_is_wram)||(cpu_re_is_wram));
+// Logic for RV SRAM controller
+reg  [15:0] r_wram_din;
+// Logic for RV SRAM arbiter
+wire        rv_address_is_wram      = ((i_rv_addr >= NES_BSRAM_STARTING_ADDRESS_RV)&&(i_rv_addr <= NES_BSRAM_STARTING_ADDRESS_RV));
 wire        rv_we                   = (i_rv_wstrb != 0);
-wire [7:0]  rv_din                  = (i_rv_word ? i_rv_wdata[31:16] : i_rv_wdata[15:0]);
-wire        rv_we_is_wram           = ((rv_we)&&(rv_address_is_wram));
-wire        rv_re_is_wram           = ((!rv_we)&&(rv_address_is_wram));
-wire        rv_req_is_wram          = ((rv_we_is_wram)||(rv_re_is_wram))&&(i_rv_req)&&(rv_address_is_wram);
-wire        address_is_wram         = ((cpu_address_is_wram)|(rv_we_is_wram));
+wire [15:0] rv_din                  = (i_rv_word ? i_rv_wdata[31:16] : i_rv_wdata[15:0]);
+wire        rv_we_is_wram           = (i_rv_req)&&((rv_we)&&(rv_address_is_wram));
+wire        rv_re_is_wram           = (i_rv_req)&&((!rv_we)&&(rv_address_is_wram));
+wire        rv_req_is_wram          = ((rv_we_is_wram)||(rv_re_is_wram));
+// Logic for SRAM arbiter
+wire        address_is_wram         = ((cpu_address_is_wram)|(rv_address_is_wram));
 wire        we_is_wram              = ((cpu_we_is_wram)|(rv_we_is_wram));
 wire        re_is_wram              = ((cpu_re_is_wram)|(rv_re_is_wram));
 wire        req_is_wram             = ((cpu_req_is_wram)|(rv_req_is_wram));
-reg  [7:0]  r_wram_din;
-// wire [7:0]  wram_din                = cpu_we_is_wram ? dinB : ((rv_req_is_wram)&&(rv_we_is_wram)) ? rv_din[7:0] : r_wram_din;
 wire [7:0]  wram_din                = ((rv_req_is_wram)&&(rv_we_is_wram)&&(!cpu_we_is_wram)) ? rv_din[7:0] : dinB;
 reg  [7:0]  r_wram_dout;
 reg  [15:0] r_wram_address;
-// wire [15:0] wram_address            = (((cpu_we_is_wram)||(cpu_re_is_wram))&&(!i_wram_load_ongoing)) ? addrB : ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0]: r_wram_address;
 wire [15:0] wram_address            = i_wram_load_ongoing ?
-                                                                ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0] : addrB
-
+                                                            ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? i_rv_addr[15:0] : addrB
                                                             : addrB;        
-//wire [15:0] wram_bsram_index        = rv_req_is_wram ? (wram_address - 15'h66000) : (wram_address - 15'h6000) ;
-wire [15:0] wram_bsram_index        = (wram_address >= 'h6000) ? (wram_address - 15'h6000) : 'h0;
+wire [15:0] wram_bsram_index        = (wram_address >= NES_BSRAM_STARTING_ADDRESS_NES) ? (wram_address - NES_BSRAM_STARTING_ADDRESS_NES) : 'h0;
 
 // Write
 always @(posedge i_clk) begin
     if((req_is_wram)&&(we_is_wram))
-        wram_bsram[wram_bsram_index] <= wram_din;
+        // wram_bsram[wram_bsram_index] <= wram_din[7:0];
+        wram_bsram[wram_bsram_index] <= wram_bsram_index[7:0];
 end
 
 // Read
@@ -124,7 +136,7 @@ always @(posedge i_clk) begin
 end
 
 always @(posedge i_clk)
-    r_wram_din <= wram_din;
+    r_wram_din <= {8'h00, wram_din};
 
 always @(posedge i_clk)
     r_wram_address <= wram_address;
@@ -132,14 +144,18 @@ always @(posedge i_clk)
 //
 // Output
 //
-// // assign o_memory_dout_sdram_cpu_din  = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
-// // assign o_rv_dout                    = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
-// assign o_memory_dout_sdram_cpu_din  = (cpu_address_is_wram) ? r_wram_dout           : sdram_dout_cpu;
-// assign o_rv_dout                    = (rv_address_is_wram) ? {8'h0, r_wram_dout}    : sdram_dout_rv;
+// // // // assign o_memory_dout_sdram_cpu_din  = ((cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
+// // // // assign o_rv_dout                    = ((rv_req_is_wram)&&(rv_re_is_wram)) ? {8'h0, r_wram_dout} : sdram_dout_rv;
+// // // assign o_memory_dout_sdram_cpu_din  = (cpu_address_is_wram) ? r_wram_dout           : sdram_dout_cpu;
+// // // assign o_rv_dout                    = (rv_address_is_wram) ? {8'h0, r_wram_dout}    : sdram_dout_rv;
+// // assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
+// // assign o_rv_dout = sdram_dout_rv;
+// // // assign o_memory_dout_sdram_cpu_din  = ((cpu_address_is_wram)&&(o_rv_req_ack)) ? r_wram_dout            : sdram_dout_cpu;
+// // // assign o_rv_dout                    = ((rv_address_is_wram)&&(o_rv_req_ack))  ? {8'h0, r_wram_dout}    : sdram_dout_rv;
+// assign o_memory_dout_sdram_cpu_din = (cpu_address_is_wram) ? r_wram_dout : sdram_dout_cpu;
+// assign o_rv_dout = (cpu_address_is_wram) ? r_wram_dout : sdram_dout_rv;
 assign o_memory_dout_sdram_cpu_din = sdram_dout_cpu;
 assign o_rv_dout = sdram_dout_rv;
-// assign o_memory_dout_sdram_cpu_din  = ((cpu_address_is_wram)&&(o_rv_req_ack)) ? r_wram_dout            : sdram_dout_cpu;
-// assign o_rv_dout                    = ((rv_address_is_wram)&&(o_rv_req_ack))  ? {8'h0, r_wram_dout}    : sdram_dout_rv;
 
 // From sdram_nes.v or sdram_sim.v
 wire [7:0] sdram_dout_cpu;
