@@ -24,4 +24,3 @@ prep -top sdram_arbiter
 
 [files]
 sdram_arbiter.v
-wishbone_slaves.vh

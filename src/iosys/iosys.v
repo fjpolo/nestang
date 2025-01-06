@@ -113,7 +113,9 @@ module iosys #(
     // Aspect Ratio
     output wire o_reg_aspect_ratio,
     // reg_load_bsram
-    output wire o_reg_load_bsram
+    output wire o_reg_load_bsram,
+    // reg_load_bsram
+    output wire o_reg_save_bsram
 );
 
 /* verilator lint_off PINMISSING */
@@ -613,6 +615,18 @@ always @(posedge clk) begin
     end
 end
 assign o_reg_load_bsram = reg_load_bsram;
+
+// reg_save_bsram
+initial reg_save_bsram = 0;
+always @(posedge clk) begin
+    if(~resetn)
+        reg_save_bsram <= 1'b0;
+    else begin
+        if(mem_addr == 32'h0200_0180)
+            reg_save_bsram <= mem_wdata[0];           
+    end
+end
+assign o_reg_save_bsram = reg_save_bsram;
 
 // Timer Interrupts
 reg [31:0] reg_timer_interrupts;
