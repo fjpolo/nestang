@@ -80,9 +80,13 @@ module sdram_arbiter(
 
     // WRAM
     input   wire                                i_wram_load_ongoing,
-    input   wire                                i_wram_save_ongoing
+    input   wire                                i_wram_save_ongoing,
+
+    // Debug
+    output  wire    [1:0]                       o_led
 );
 localparam NES_BSRAM_SIZE = 'h2000;
+localparam RV_BSRAM_OFFSET = 'h70_0000;
 localparam NES_BSRAM_STARTING_ADDRESS_RV  = 23'h0070_6000;
 localparam NES_BSRAM_LAST_ADDRESS_RV  = (NES_BSRAM_STARTING_ADDRESS_RV + NES_BSRAM_SIZE);
 localparam NES_BSRAM_STARTING_ADDRESS_NES = 16'h0000_6000;
@@ -95,6 +99,9 @@ localparam NES_BSRAM_LAST_ADDRESS_NES = NES_BSRAM_STARTING_ADDRESS_NES + NES_BSR
 reg [7:0] wram_bsram[0:(NES_BSRAM_SIZE-1)];
 `else
 (* ram_style = "block" *)   reg [7:0] wram_bsram[0:(NES_BSRAM_SIZE-1)];   /* synthesis syn_keep=1 */
+initial begin
+    $readmemh("BSRAMinit.bin", wram_bsram);
+end
 `endif
 
 // Logic for CPU SRAM controller
@@ -108,8 +115,6 @@ wire        cpu_address_is_wram     = ((addrB >= NES_BSRAM_STARTING_ADDRESS_NES)
 wire        cpu_we_is_wram          = ((weB)&&(cpu_address_is_wram));
 wire        cpu_re_is_wram          = ((oeB)&&(cpu_address_is_wram));
 wire        cpu_req_is_wram         = ((cpu_we_is_wram)||(cpu_re_is_wram));
-// Logic for RV SRAM controller
-reg  [15:0] r_wram_din;
 // Logic for RV SRAM arbiter
 wire        rv_address_is_wram      = ((i_rv_addr >= NES_BSRAM_STARTING_ADDRESS_RV)&&(i_rv_addr <= NES_BSRAM_STARTING_ADDRESS_RV));
 wire        rv_we                   = (i_rv_wstrb != 0);
@@ -122,42 +127,102 @@ wire        address_is_wram         = ((cpu_address_is_wram)|(rv_address_is_wram
 wire        we_is_wram              = ((cpu_we_is_wram)|(rv_we_is_wram));
 wire        re_is_wram              = ((cpu_re_is_wram)|(rv_re_is_wram));
 wire        req_is_wram             = ((cpu_req_is_wram)|(rv_req_is_wram));
-wire [7:0]  wram_din                = ((rv_req_is_wram)&&(rv_we_is_wram)&&(!cpu_we_is_wram)) ? rv_din[7:0] : dinB;
 reg  [7:0]  r_wram_dout;
-reg  [15:0] r_wram_address;
-wire [15:0] wram_address            = !cpu_address_is_wram ? 
-                                            'h0 :                   // We don't care if !cpu_address_is_wram
-                                            i_wram_load_ongoing ?   // Meaning RV is writing to WRAM
-                                                                   ((rv_req_is_wram)&&((rv_we_is_wram)||(rv_re_is_wram))) ? (i_rv_addr[15:0] - NES_BSRAM_STARTING_ADDRESS_RV) : addrB
-                                                                    : addrB; // CPU writes to WRAM       
+
+// Data in logic
+reg [7:0] r_wram_din;
+reg [7:0]  r_wram_din_past;
+initial r_wram_din <= 'h0;
+initial r_wram_din_past <= 'h0;
+always @(posedge i_clk)
+    if(!i_resetn) begin
+        r_wram_din <= 'h0;
+        r_wram_din_past <= 'h0;
+    end else begin
+        r_wram_din <= wram_din;
+        r_wram_din_past <= r_wram_din;
+    end
+wire [7:0]  wram_din                =   req_is_wram ? 
+                                                    cpu_req_is_wram ?
+                                                                    (rv_req_is_wram)&&(i_wram_load_ongoing) ?
+                                                                    i_rv_wdata[7:0] : 
+                                                                    dinB :
+                                                    rv_req_is_wram ? 
+                                                    i_rv_wdata :
+                                                    r_wram_din_past :
+                                        r_wram_din_past;
+
+// WRAM Address logic
+reg [1:0] r_wram_init_counter;
+initial r_wram_init_counter = 'h0;
+always @(posedge i_clk)
+    if(!i_resetn) begin
+        r_wram_init_counter <= 0;
+    end else begin
+        if(r_wram_init_counter == 2)
+            r_wram_init_counter <= 2;
+        else
+            r_wram_init_counter <= r_wram_init_counter + 1;
+    end
+
+reg  [15:0] r_wram_address; 
+reg  [15:0] r_wram_address_past; 
+initial r_wram_address = 'h6000;
+initial r_wram_address_past = 'h6000;
+always @(posedge i_clk)
+    if(!i_resetn) begin
+        r_wram_address <= 'h6000;
+        r_wram_address_past <= 'h6000;
+    end else begin
+            r_wram_address_past <= r_wram_address;
+            r_wram_address <= wram_address;
+    end 
+wire [15:0] wram_address = !req_is_wram ?   r_wram_address_past :
+                                            we_is_wram ? 
+                                                        (i_wram_load_ongoing ?
+                                                                                (rv_req_is_wram ? 
+                                                                                                    (i_rv_addr - RV_BSRAM_OFFSET) : 
+                                                                                                    r_wram_address_past) :
+                                                                                (cpu_req_is_wram ? addrB :
+                                                        ((rv_req_is_wram && !cpu_req_is_wram) ? 
+                                                                                                (i_rv_addr - RV_BSRAM_OFFSET) : 
+                                                                                                r_wram_address_past))) :
+                                            r_wram_address_past;
+
+//
 wire [15:0] wram_bsram_index_cpu        = ((addrB >= NES_BSRAM_STARTING_ADDRESS_NES)&&(addrB <= NES_BSRAM_LAST_ADDRESS_NES)) ? (addrB - NES_BSRAM_STARTING_ADDRESS_NES) : 'h0;
 wire [15:0] wram_bsram_index_rv         = ((i_rv_addr >= NES_BSRAM_STARTING_ADDRESS_RV)&&(i_rv_addr <= NES_BSRAM_LAST_ADDRESS_RV)) ? (i_rv_addr - NES_BSRAM_STARTING_ADDRESS_RV) : 'h0;
 wire [15:0] wram_bsram_index            = ((address_is_wram)&&(rv_address_is_wram)) ? wram_bsram_index_rv : wram_bsram_index_cpu;
+//
+wire wram_write = (req_is_wram)&&(we_is_wram)&&(address_is_wram);
+wire wram_read = (req_is_wram)&&(re_is_wram);
 
 // Write
 always @(posedge i_clk) begin
-    if((req_is_wram)&&(we_is_wram)&&(address_is_wram))
+    if(wram_write)
         wram_bsram[wram_bsram_index] <= wram_din[7:0];
 end
 
 // Read
 always @(posedge i_clk) begin
-    if((req_is_wram)&&(re_is_wram))
+    if(wram_read)
         r_wram_dout <= wram_bsram[wram_bsram_index];
 end
-
-always @(posedge i_clk)
-    if((req_is_wram)&&(we_is_wram))
-        r_wram_din <= {8'h00, wram_din};
-
-always @(posedge i_clk)
-    r_wram_address <= wram_address;
 
 //
 // Output
 //
-assign o_memory_dout_sdram_cpu_din = ((cpu_address_is_wram)&&(cpu_req_is_wram)&&(cpu_re_is_wram)) ? r_wram_dout : sdram_dout_cpu;
-assign o_rv_dout = ((rv_address_is_wram)&&(rv_req_is_wram)&&(rv_re_is_wram)) ? r_wram_dout : sdram_dout_rv;
+assign o_memory_dout_sdram_cpu_din  = ((cpu_address_is_wram)&&(cpu_req_is_wram)&&(cpu_re_is_wram))  ? r_wram_dout : sdram_dout_cpu;
+assign o_rv_dout                    = ((rv_address_is_wram)&&(rv_req_is_wram)&&(rv_re_is_wram))     ? r_wram_dout : sdram_dout_rv;
+// Debug
+reg [1:0] r_led;
+initial r_led = 2'b11;
+always @(posedge i_clk) begin
+    r_led[0] = cpu_address_is_wram ? ~r_led[0] : r_led[0];
+    r_led[1] = rv_address_is_wram ? ~o_led[1] : o_led[1];
+end
+assign o_led[0] = r_led[0];
+assign o_led[1] = r_led[1];
 
 // From sdram_nes.v or sdram_sim.v
 `ifndef FORMAL
@@ -224,16 +289,17 @@ sdram_nes sdram (
     always @(posedge i_clk)
         if($past(!i_resetn))
             assume(!f_past_valid);
-
+    always @(*)
+        if(!rv_req_is_wram)
+            assume(!i_wram_load_ongoing);
 
 
     // BMC Assertions
 
     // 1. If there's a valid address_is_wram, then there's a valid address from CPU or RV
-    always @(posedge i_clk)
-        if((f_past_valid)&&($past(i_resetn))&&(i_resetn))
-            if(address_is_wram)
-                assert((cpu_address_is_wram)||(rv_address_is_wram));
+    always @(*)
+        if(address_is_wram)
+            assert((cpu_address_is_wram)||(rv_address_is_wram));
 
     // 2.1 CPU address is always between $6000 and $8000 for cpu_address_is_wram to be valid
     always @(*)
@@ -260,10 +326,13 @@ sdram_nes sdram (
         if(rv_address_is_wram)
             assert(wram_bsram_index_rv <= 'h2000);
 
-    // 4. wram_address is always between $6000 and $8000 or 0
-    always @(*)
-        if(address_is_wram)
-            assert((wram_address >= 'h6000)&&(wram_address <= 'h8000)||(wram_address == 0));
+    // 4. wram_address is always between $6000 and $8000
+    wire [31:0] f_nes_bsram_starting_address_rv = NES_BSRAM_STARTING_ADDRESS_RV;
+    initial assert(r_wram_address == 'h6000);
+    initial assert(r_wram_address_past == 'h6000);
+    always @(posedge i_clk)
+        if((f_past_valid)&&(!$past(f_past_valid))&&($past(i_resetn))&&(i_resetn))
+            assert((wram_address >= 'h6000)&&(wram_address <= 'h8000));
 
     // 5. req_is_wram is valid if address is valid
     always @(*)
@@ -280,33 +349,94 @@ sdram_nes sdram (
         if(req_is_wram)
             assert((cpu_req_is_wram)||(rv_req_is_wram));
 
-    // 6. wram_din is rv_din only if RV request is valid and CPU is not requesting
+    // 6.1 wram_din is i_rv_wdata only if RV request is valid and CPU is not requesting, unless there's a load ongoing
     always @(*)
-        if((rv_req_is_wram)&&(rv_address_is_wram)&&(rv_we_is_wram)&&(!cpu_we_is_wram))
-            assert(wram_din == rv_din[7:0]);
-        else
-            assert(wram_din == dinB);
+        if(req_is_wram)
+            if((rv_req_is_wram)&&(!cpu_req_is_wram))
+                assert(wram_din == i_rv_wdata[7:0]);
+            else if((rv_req_is_wram)&&(cpu_req_is_wram)&&(i_wram_load_ongoing))
+                assert(wram_din == i_rv_wdata[7:0]);
+            else
+                assert(wram_din == (dinB)||(7'h0));
+    // 6.2 wram_din is dinB only if CPU request is valid there's not a load ongoing
+    always @(*)
+        if(req_is_wram)
+            if((cpu_req_is_wram)&&(!i_wram_load_ongoing))
+                assert(wram_din == dinB);
+            else
+                assert(wram_din == (i_rv_wdata[7:0])||(7'h0));
 
     // 7. r_wram_din changes on clock edges and only if write request is valid
+    initial assert(r_wram_din == 'h0);
+    initial assert(r_wram_din_past == 'h0);
     always @(posedge i_clk)
-        if((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+        if((f_past_valid)&&(!$past(f_past_valid))&&($past(i_resetn))&&(i_resetn))
             if(($past(req_is_wram))&&($past(we_is_wram)))
                 assert(r_wram_din == $past(wram_din));
-            else
-                assert(r_wram_din == $past(r_wram_din));
 
-    // // 8. BSRAM
-    // (* anyconst *)  reg [(SDRAM_DATA_WIDTH-1):0]    f_const_addr;
-    //                 reg [7:0]                       f_const_value;
-    // always @(*)
-    //     assume(f_const_addr <= 'h8000);
-        
-    // always @(posedge i_clk) begin
-    //     if(!f_past_valid)
-    //         f_const_value <= wram_bsram[f_const_addr];
-    //     else
-    //         assert(f_const_value == wram_bsram[f_const_addr]);
-    // end
+    // 8.1 BSRAM NES
+    (* anyconst *)	wire	[22:0]	f_nes_addr;
+    reg	[7:0]	f_nes_data;
+    initial f_nes_data = wram_bsram[f_nes_addr];
+    always @(*)
+        assume((f_nes_addr >= 'h6000)&&(f_nes_addr <= 'h8000));
+    always @(*)
+	    assert(wram_bsram[f_nes_addr] == f_nes_data);
+    // Read
+    always @(posedge i_clk)
+        if (
+            ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            // Request iw WRAM
+            &&($past(cpu_req_is_wram)&&(!$past(rv_req_is_wram))&&(!rv_req_is_wram))
+            // Reading from memory
+            &&($past(cpu_re_is_wram)&&(!$past(rv_re_is_wram))&&(rv_re_is_wram))
+            // At this address
+            &&($past(addrB == f_nes_addr))
+        )
+                assert(r_wram_dout == $past(f_nes_data));
+    // // Write
+    // always @(posedge i_clk)
+    //     if (
+    //         ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+    //             // writing to our memory
+    //             &&(cpu_re_is_wram)
+    //             // At this address
+    //             &&(addrB == f_nes_addr)
+    //         )
+    //             // Then overwrite f_nes_data
+    //             f_nes_data <= dinB;
+
+    // 8.2 BSRAM RV
+    (* anyconst *)	wire	[22:0]	f_rv_addr;
+    reg	[7:0]	f_rv_data;
+    initial f_rv_data = wram_bsram[f_rv_addr];
+    always @(*)
+        assume((f_rv_addr >= 'h6000)&&(f_rv_addr <= 'h8000));
+    always @(*)
+	    assert(wram_bsram[f_rv_addr] == f_rv_data);
+    // Read
+    always @(posedge i_clk)
+        if (
+            ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            // Request iw WRAM
+            &&($past(cpu_req_is_wram)&&(!$past(rv_req_is_wram))&&(!rv_req_is_wram))
+            // Reading from memory
+            &&($past(cpu_re_is_wram)&&(!$past(rv_re_is_wram))&&(rv_re_is_wram))
+            // At this address
+            &&($past(i_rv_addr == f_rv_addr))
+        )
+                assert(r_wram_dout == $past(f_rv_data));
+    // // Write
+    // always @(posedge i_clk)
+    //     if (
+    //         ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+    //             // writing to our memory
+    //             &&(rv_re_is_wram)
+    //             // At this address
+    //             &&(i_rv_addr == f_rv_addr)
+    //         )
+    //             // Then overwrite f_nes_data
+    //             f_rv_data <= f_rv_data;
 
     // 9. CPU output
     always @(*)
@@ -328,7 +458,16 @@ sdram_nes sdram (
                 assert(o_rv_dout == sdram_dout_rv);
     end
 
+    // 11. 
+
     // Cover
+
+    // 1. Test that if there's a read request, data out changes (though it must not if the same address is read)
+    always @(posedge i_clk)
+        if((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            if((address_is_wram)&&(req_is_wram)&&(re_is_wram))
+                cover(r_wram_dout != $past(r_wram_dout));
+
 
     // Contract
     

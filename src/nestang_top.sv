@@ -344,7 +344,9 @@ sdram_arbiter sdram_arbiter (
     .i_rv_wstrb(rv_wstrb),
     // BSRAM control
     .i_wram_load_ongoing(wram_load_bsram),
-    .i_wram_save_ongoing(wram_save_bsram)
+    .i_wram_save_ongoing(wram_save_bsram),
+    // Debug
+    .o_led(led[1:0])
 );
 `else
 // From sdram_nes.v or sdram_sim.v
@@ -567,8 +569,8 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .o_reg_save_bsram(wram_save_bsram)
 );
 
-assign led[0] = ~wram_load_bsram;
-assign led[1] = ~wram_save_bsram;
+// assign led[0] = ~wram_load_bsram;
+// assign led[1] = ~wram_save_bsram;
 
 // Controller input
 `ifdef CONTROLLER_SNES
