@@ -225,9 +225,9 @@ assign o_led[0] = r_led[0];
 assign o_led[1] = r_led[1];
 
 // From sdram_nes.v or sdram_sim.v
-`ifndef FORMAL
 wire [7:0] sdram_dout_cpu;
 wire [15:0] sdram_dout_rv;
+`ifndef FORMAL
 sdram_nes sdram (
     .clk(i_clk),
     .clkref(i_clkref),
@@ -374,14 +374,15 @@ sdram_nes sdram (
             if(($past(req_is_wram))&&($past(we_is_wram)))
                 assert(r_wram_din == $past(wram_din));
 
-    // 8.1 BSRAM NES
+    // 8.2 BSRAM RV
     (* anyconst *)	wire	[22:0]	f_nes_addr;
+    wire	[22:0]	f_nes_index = f_nes_addr - 'h70_6000;
     reg	[7:0]	f_nes_data;
-    initial f_nes_data = wram_bsram[f_nes_addr];
+    initial f_nes_data = wram_bsram[f_nes_index];
     always @(*)
-        assume((f_nes_addr >= 'h6000)&&(f_nes_addr <= 'h8000));
+        assume((f_nes_addr >= 'h70_6000)&&(f_nes_addr <= 'h70_8000));
     always @(*)
-	    assert(wram_bsram[f_nes_addr] == f_nes_data);
+	    assert(wram_bsram[f_nes_index] == f_nes_data);
     // Read
     always @(posedge i_clk)
         if (
@@ -392,28 +393,33 @@ sdram_nes sdram (
             &&($past(cpu_re_is_wram)&&(!$past(rv_re_is_wram))&&(rv_re_is_wram))
             // At this address
             &&($past(addrB == f_nes_addr))
-        )
+        ) begin
+                assert(f_nes_data == wram_bsram[f_nes_index]);
                 assert(r_wram_dout == $past(f_nes_data));
-    // // Write
-    // always @(posedge i_clk)
-    //     if (
-    //         ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
-    //             // writing to our memory
-    //             &&(cpu_re_is_wram)
-    //             // At this address
-    //             &&(addrB == f_nes_addr)
-    //         )
-    //             // Then overwrite f_nes_data
-    //             f_nes_data <= dinB;
+        end
+    // Write
+    always @(posedge i_clk)
+        if (
+            ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            // Request iw WRAM
+            &&($past(cpu_req_is_wram)&&(!$past(rv_req_is_wram))&&(!rv_req_is_wram))
+            // Reading from memory
+            &&($past(cpu_re_is_wram)&&(!$past(rv_we_is_wram))&&(rv_re_is_wram))
+            // At this address
+            &&($past(addrB == f_nes_addr))
+        ) begin
+                assert(wram_bsram[f_nes_index] != $past(wram_bsram[f_nes_index]));
+        end
 
     // 8.2 BSRAM RV
     (* anyconst *)	wire	[22:0]	f_rv_addr;
+    wire	[22:0]	f_rv_index = f_rv_addr - 'h6000;
     reg	[7:0]	f_rv_data;
-    initial f_rv_data = wram_bsram[f_rv_addr];
+    initial f_rv_data = wram_bsram[f_rv_index];
     always @(*)
         assume((f_rv_addr >= 'h6000)&&(f_rv_addr <= 'h8000));
     always @(*)
-	    assert(wram_bsram[f_rv_addr] == f_rv_data);
+	    assert(wram_bsram[f_rv_index] == f_rv_data);
     // Read
     always @(posedge i_clk)
         if (
@@ -423,20 +429,24 @@ sdram_nes sdram (
             // Reading from memory
             &&($past(cpu_re_is_wram)&&(!$past(rv_re_is_wram))&&(rv_re_is_wram))
             // At this address
-            &&($past(i_rv_addr == f_rv_addr))
-        )
+            &&($past(addrB == f_rv_addr))
+        ) begin
+                assert(f_rv_data == wram_bsram[f_rv_index]);
                 assert(r_wram_dout == $past(f_rv_data));
-    // // Write
-    // always @(posedge i_clk)
-    //     if (
-    //         ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
-    //             // writing to our memory
-    //             &&(rv_re_is_wram)
-    //             // At this address
-    //             &&(i_rv_addr == f_rv_addr)
-    //         )
-    //             // Then overwrite f_nes_data
-    //             f_rv_data <= f_rv_data;
+        end
+    // Write
+    always @(posedge i_clk)
+        if (
+            ((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            // Request iw WRAM
+            &&($past(cpu_req_is_wram)&&(!$past(rv_req_is_wram))&&(!rv_req_is_wram))
+            // Reading from memory
+            &&($past(cpu_re_is_wram)&&(!$past(rv_we_is_wram))&&(rv_re_is_wram))
+            // At this address
+            &&($past(addrB == f_rv_addr))
+        ) begin
+                assert(wram_bsram[f_rv_index] != $past(wram_bsram[f_rv_index]));
+        end
 
     // 9. CPU output
     always @(*)
@@ -467,7 +477,20 @@ sdram_nes sdram (
         if((f_past_valid)&&($past(i_resetn))&&(i_resetn))
             if((address_is_wram)&&(req_is_wram)&&(re_is_wram))
                 cover(r_wram_dout != $past(r_wram_dout));
+    
+    // 1.1 CPU: Test that if there's a read request, data out changes (though it must not if the same address is read)
+    always @(posedge i_clk)
+        if((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            if((cpu_address_is_wram)&&(cpu_req_is_wram)&&(cpu_re_is_wram)) begin
+                cover(doutB != $past(r_wram_dout));
+            end
 
+    // 1.2 RV: Test that if there's a read request, data out changes (though it must not if the same address is read)
+    always @(posedge i_clk)
+        if((f_past_valid)&&($past(i_resetn))&&(i_resetn))
+            if((rv_address_is_wram)&&(rv_req_is_wram)&&(rv_re_is_wram)) begin
+                cover(o_rv_dout != $past(r_wram_dout));
+            end
 
     // Contract
     
