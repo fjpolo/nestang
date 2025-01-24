@@ -132,7 +132,7 @@ wire [12:0] wram_bsram_addr_rv = rv_addr[12:0];
 wire [12:0] wram_bsram_addr_combined = rv_address_is_wram_bsram ? wram_bsram_addr_rv : wram_bsram_addr_cpu;
 wire [7:0] wram_bsram_din_cpu = dinB;
 wire [7:0] wram_bsram_din_rv = rv_din;
-wire [7:0] wram_bsram_din_combined = i_load_ongoing ? wram_bsram_din_rv : wram_bsram_din_cpu;
+wire [7:0] wram_bsram_din_combined = rv_address_is_wram_bsram ? wram_bsram_din_rv : wram_bsram_din_cpu;
 always @(posedge clk) begin
     if (wram_bsram_we_combined) begin
         wram_bsram[wram_bsram_addr_combined] <= wram_bsram_din_combined; // Write data to wram_bsram
@@ -231,14 +231,12 @@ always @(*)
     if((rv_address_is_wram_bsram)&&(rv_we))
         assert(wram_bsram_we_rv == 1'b1);
 
-// // 5. If there's a write and a valid wram address, wram_bsram[wram_bsram_addr_combined] should change
-// wire [12:0] f_addr = 'h50;
-// wire [7:0] f_data = wram_bsram[f_addr];
-// always @(posedge clk)
-//     if((f_past_valid)&&(!$past(f_past_valid))&&($past(resetn))&&(resetn))begin
-//         if(($past(address_is_wram_bsram))&&($past(wram_bsram_we_combined))&&($past(wram_bsram_addr_combined) == $past(f_addr)))
-//             assert($changed(wram_bsram[$past(wram_bsram_addr_combined)] ));
-//     end
+// 5. If there's a write and a valid wram address, wram_bsram[wram_bsram_addr_combined] should change
+always @(posedge clk)
+    if((f_past_valid)&&($past(f_past_valid))&&($past(resetn))&&(resetn))begin
+        if($past(wram_bsram_we_combined))
+            assert(wram_bsram[$past(wram_bsram_addr_combined)] == $past(wram_bsram_din_combined));
+    end
 // 6. If there's a valid address_is_wram and a valid wreadrite, then wram_bsram_re_combined is either wram_bsram_re_rv or wram_bsram_re_cpu
 always @(*)
     if(address_is_wram_bsram)
