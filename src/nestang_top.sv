@@ -299,7 +299,7 @@ always @(posedge clk) begin
         mapper_flags <= loader_flags;
 end
 
-`define USE_SDRAM_ARBITER
+// `define USE_SDRAM_ARBITER
 `ifdef USE_SDRAM_ARBITER
 // sdram_arbiter
 sdram_arbiter sdram_arbiter (
@@ -364,7 +364,7 @@ sdram_nes sdram (
     .dinB(loading ? loader_write_data_mem : memory_dout_cpu),
     .oeB(~loading & memory_read_cpu), .doutB(memory_din_cpu),
     // IOSys risc-v softcore
-    .rv_addr({rv_addr[20:2], rv_word}), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
+    .rv_addr({rv_addr[20:2], rv_word}), .rv_addr_full(rv_addr), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
     .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
     );
 `endif // USE_SDRAM_ARBITER

@@ -12,3 +12,8 @@ sdram_arbiter/
 sdram_arbiter_bound/
 sdram_arbiter_cvr/
 sdram_arbiter_prf/
+
+sdram_nes/
+sdram_nes_bound/
+sdram_nes_cvr/
+sdram_nes_prf/

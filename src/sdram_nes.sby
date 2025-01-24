@@ -1,0 +1,26 @@
+[tasks]
+bound
+prf
+cvr
+
+[options]
+bound:  mode bmc
+bound:  depth 64
+prf:    mode prove
+prf:    depth 8
+cvr:    mode cover
+cvr:    depth 64
+cvr:    append 20
+
+
+[engines]
+bound:  smtbmc
+prf:    smtbmc yices
+cvr:    smtbmc
+
+[script]
+read_verilog -formal sdram_nes.v
+prep -top sdram_nes
+
+[files]
+sdram_nes.v

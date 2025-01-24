@@ -14,7 +14,15 @@
 //
 // For both Nano 20K (32-bit total 8MB) and Primer 25K (16-bit total 32MB)
 
+`ifndef FORMAL
 import configPackage::*;
+`else
+// Tang SDRAM v1.2: 2B * 8K * 512 * 4 = 32MB
+localparam SDRAM_DATA_WIDTH = 16;     // 2 bytes per word
+localparam SDRAM_ROW_WIDTH = 13;      // 8K rows
+localparam SDRAM_COL_WIDTH = 9;       // 512 cols
+localparam SDRAM_BANK_WIDTH = 2;      // 4 banks
+`endif
 
 module sdram_nes #(
     // Clock frequency, max 66.7Mhz with current set of T_xx/CAS parameters.
@@ -57,16 +65,207 @@ module sdram_nes #(
 
     // RISC-V softcore
     input      [20:1] rv_addr,      // 2MB RV memory space, bank 2
+    input      [22:0] rv_addr_full,      // 2MB RV memory space, bank 2
+    input      [15:0] rv_din,       // 16-bit accesses
     input      [15:0] rv_din,       // 16-bit accesses
     input      [1:0]  rv_ds,
     output reg [15:0] rv_dout,
     input             rv_req,
     output reg        rv_req_ack,   // ready for new requests. read data available on NEXT mclk
-    input             rv_we
+    input             rv_we,
+    // WRMA load from RV to
+    input wire i_load_ongoing,
 );
 
 localparam DQM_SIZE = SDRAM_DATA_WIDTH / 8;
 
+//
+// WRAM BSRAM - Begin
+//
+localparam NES_BSRAM_SIZE = 'h2000;
+localparam RV_BSRAM_OFFSET = 'h70_0000;
+localparam NES_BSRAM_STARTING_ADDRESS_RV  = 23'h0070_6000;
+localparam NES_BSRAM_LAST_ADDRESS_RV  = (NES_BSRAM_STARTING_ADDRESS_RV + NES_BSRAM_SIZE);
+localparam NES_BSRAM_STARTING_ADDRESS_NES = 16'h0000_6000;
+localparam NES_BSRAM_LAST_ADDRESS_NES = NES_BSRAM_STARTING_ADDRESS_NES + NES_BSRAM_SIZE;
+
+// Infere Block RAM for NES WRAM $6000-$8000
+`ifdef FORMAL
+reg [7:0] wram_bsram[0:(NES_BSRAM_SIZE-1)];
+`else
+(* ram_style = "block" *)   reg [7:0] wram_bsram[0:(NES_BSRAM_SIZE-1)];   /* synthesis syn_keep=1 */
+initial begin
+    $readmemh("BSRAMinit.bin", wram_bsram);
+end
+`endif
+
+// Additional signals
+reg [12:0] wram_bsram_addr;        // Address for wram_bsram
+reg [7:0] wram_bsram_dout;        // Data output for reads from wram_bsram
+reg wram_bsram_we;                // Write enable for wram_bsram
+
+// Address range detection for CPU accesses to wram_bsram
+wire cpu_address_is_wram_bsram = (addrB >= 'h6000) && (addrB < 'h8000); // 0x6000 to 0x7FFF
+
+// Address range detection for RV accesses to wram_bsram
+wire rv_address_is_wram_bsram = (rv_addr >= 23'h706000) && (rv_addr < 23'h708000);
+
+// Common address detection for read/write operations
+wire address_is_wram_bsram = (cpu_address_is_wram_bsram)||(rv_address_is_wram_bsram);
+
+// Write enable logic for wram_bsram
+wire wram_bsram_we_cpu = cpu_address_is_wram_bsram && weB;
+wire wram_bsram_we_rv = rv_address_is_wram_bsram && rv_we;
+wire wram_bsram_we_combined = rv_address_is_wram_bsram ? wram_bsram_we_rv : wram_bsram_we_cpu;
+
+// always @(posedge clk) begin
+//     if (rst) begin
+//         wram_bsram_we <= 1'b0;
+//     end else begin
+//         wram_bsram_we <= wram_bsram_we_combined;
+//     end
+// end
+
+// Write logic for wram_bsram
+wire [12:0] wram_bsram_addr_cpu = addrB[12:0];
+wire [12:0] wram_bsram_addr_rv = rv_addr[12:0];
+wire [12:0] wram_bsram_addr_combined = rv_address_is_wram_bsram ? wram_bsram_addr_rv : wram_bsram_addr_cpu;
+wire [7:0] wram_bsram_din_cpu = dinB;
+wire [7:0] wram_bsram_din_rv = rv_din;
+wire [7:0] wram_bsram_din_combined = i_load_ongoing ? wram_bsram_din_rv : wram_bsram_din_cpu;
+always @(posedge clk) begin
+    if (wram_bsram_we_combined) begin
+        wram_bsram[wram_bsram_addr_combined] <= wram_bsram_din_combined; // Write data to wram_bsram
+    end
+end
+
+// Read logic for wram_bsram
+wire wram_bsram_re_cpu = cpu_address_is_wram_bsram && oeB;
+wire wram_bsram_re_rv = rv_address_is_wram_bsram && (rv_req)&&(!rv_we);
+wire wram_bsram_re_combined = wram_bsram_re_cpu || wram_bsram_re_rv;
+wire [7:0] doutB_aux;
+wire [15:0] rv_dout_aux;
+always @(posedge clk) begin
+    if (wram_bsram_re_combined) begin
+        wram_bsram_dout <= wram_bsram[wram_bsram_addr_read]; // Read data from wram_bsram
+    end
+end
+
+// Read address logic for wram_bsram
+wire [12:0] wram_bsram_addr_read = wram_bsram_re_cpu ? addrB[12:0] : rv_addr[12:0];
+
+// Override SDRAM read data with wram_bsram data for 0x6000-0x7FFF (CPU) and 0x706000-0x708000 (RV)
+assign doutB = (cpu_address_is_wram_bsram)    ? wram_bsram_dout   : doutB_aux;
+assign rv_dout = (rv_address_is_wram_bsram)     ? wram_bsram_dout   : rv_dout_aux;
+
+//
+// Formal methods
+//
+`ifdef FORMAL
+
+// f_past_valid
+reg	f_past_valid;
+initial	f_past_valid = 1'b0;
+initial assert(!f_past_valid);
+always @(posedge clk)
+    f_past_valid = 1'b1;
+
+// BMC Assumptions
+always @(posedge clk)
+    if(!f_past_valid)
+        assume($past(!resetn));
+
+always @(posedge clk)
+    if($past(!resetn))
+        assume(!f_past_valid);
+always @(*)
+    if(!rv_req_is_wram)
+        assume(!wram_load_ongoing);
+
+
+
+// BMC Properties
+
+// 1. If there's a valid address_is_wram, then there's a valid address from CPU or RV
+always @(*)
+    if(address_is_wram_bsram)
+        assert((cpu_address_is_wram_bsram)||(rv_address_is_wram_bsram));
+    
+// 2.1 CPU address is always between $6000 and $8000 for cpu_address_is_wram to be valid
+always @(*)
+    if(cpu_address_is_wram_bsram)
+        assert((addrB >= 'h6000)&&(addrB < 'h8000));
+        
+// 2.2 RV address is always between $706000 and $708000 for rv_address_is_wram to be valid
+always @(*)
+if(rv_address_is_wram_bsram)
+    assert((rv_addr >= 'h706000)&&(rv_addr < 'h708000));
+
+// 2.3 wram_bsram_addr_combined should only be in the range $0000-$2000
+always @(*)
+    assert((wram_bsram_addr_combined >= 0)&&(wram_bsram_addr_combined <= 'h2000));
+
+// 2.3.1 wram_bsram_addr_cpu should only be in the range $0000-$2000
+always @(*)
+    assert((wram_bsram_addr_cpu >= 0)&&(wram_bsram_addr_cpu <= 'h2000));
+
+// // 2.3.1 wram_bsram_addr_rv should only be in the range $0000-$2000
+// always @(*)
+//     assert((wram_bsram_addr_rv >= 0)&&(wram_bsram_addr_rv <= 'h2000));
+        
+// 3. If there's a valid address_is_wram, then wram_bsram_addr_combined is either wram_bsram_addr_rv or wram_bsram_addr_cpu
+always @(*)
+    if(address_is_wram_bsram)
+        assert((wram_bsram_addr_combined == wram_bsram_addr_rv)||(wram_bsram_addr_combined == wram_bsram_addr_cpu));
+
+// 4. If there's a valid address_is_wram and a valid write, then wram_bsram_we_combined is either wram_bsram_we_rv or wram_bsram_we_cpu
+always @(*)
+    if(address_is_wram_bsram)
+        assert((wram_bsram_we_combined == wram_bsram_we_rv)||(wram_bsram_we_combined == wram_bsram_we_cpu));
+// 4.1 If there's a valid address_is_wram and a valid write from cpu, then wram_bsram_we_cpu is valid
+always @(*)
+    if((cpu_address_is_wram_bsram)&&(weB))
+        assert(wram_bsram_we_cpu == 1'b1);
+// 4.2 If there's a valid address_is_wram and a valid write from rv, then wram_bsram_we_rvis valid
+always @(*)
+    if((rv_address_is_wram_bsram)&&(rv_we))
+        assert(wram_bsram_we_rv == 1'b1);
+
+// // 5. If there's a write and a valid wram address, wram_bsram[wram_bsram_addr_combined] should change
+// wire [12:0] f_addr = 'h50;
+// wire [7:0] f_data = wram_bsram[f_addr];
+// always @(posedge clk)
+//     if((f_past_valid)&&(!$past(f_past_valid))&&($past(resetn))&&(resetn))begin
+//         if(($past(address_is_wram_bsram))&&($past(wram_bsram_we_combined))&&($past(wram_bsram_addr_combined) == $past(f_addr)))
+//             assert($changed(wram_bsram[$past(wram_bsram_addr_combined)] ));
+//     end
+// 6. If there's a valid address_is_wram and a valid wreadrite, then wram_bsram_re_combined is either wram_bsram_re_rv or wram_bsram_re_cpu
+always @(*)
+    if(address_is_wram_bsram)
+        assert((wram_bsram_re_combined == wram_bsram_re_rv)||(wram_bsram_re_combined == wram_bsram_re_cpu));
+// 6.1 If there's a valid address_is_wram and a valid read from cpu, then wram_bsram_re_cpu is valid
+always @(*)
+    if((cpu_address_is_wram_bsram)&&(oeB))
+        assert(wram_bsram_re_cpu == 1'b1);
+// 7.2 If there's a valid address_is_wram and a valid read from rv, then wram_bsram_re_rv is valid
+always @(*)
+    if((rv_address_is_wram_bsram)&&(rv_req)&&(!rv_we))
+        assert(wram_bsram_re_rv == 1'b1);
+
+// 7.  If there's a read request, output should come from Block RAM
+always @(*)
+    if((address_is_wram_bsram)&&(wram_bsram_re_combined))
+        assert((doutB == wram_bsram_dout)||(rv_dout == wram_bsram_dout));
+    else
+        assert((doutB == doutB_aux)||(rv_dout == rv_dout_aux));
+        
+`endif // FORMAL
+
+//
+// WRAM BSRAM - End
+//
+
+`ifndef FORMAL
 // Tri-state DQ input/output
 reg dq_oen;        // 0 means output
 reg [SDRAM_DATA_WIDTH-1:0] dq_out;
@@ -343,8 +542,8 @@ always @(posedge clk) begin
 `endif
 
                 case (port[0])
-                PORT_A: doutA <= dq_byte;
-                PORT_B: doutB <= dq_byte;
+                PORT_A: doutB_aux <= dq_byte;
+                PORT_B: doutB_aux <= dq_byte;
                 default: ;
                 endcase
             end
@@ -352,9 +551,9 @@ always @(posedge clk) begin
             // RV
             if (cycle[1] && oe_latch[1]) 
 `ifdef NANO
-                rv_dout <= addr_latch[1][1] ? dq_in[31:16] : dq_in[15:0];
+                rv_dout_aux <= addr_latch[1][1] ? dq_in[31:16] : dq_in[15:0];
 `else
-                rv_dout <= dq_in;
+                rv_dout_aux <= dq_in;
 `endif
         end
     end
@@ -385,5 +584,6 @@ always @(posedge clk) begin
         end        
     end
 end
+`endif // !FORMAL
 
 endmodule
