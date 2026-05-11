@@ -365,7 +365,8 @@ sdram_nes sdram (
     .oeB(~loading & memory_read_cpu), .doutB(memory_din_cpu),
     // IOSys risc-v softcore
     .rv_addr({rv_addr[20:2], rv_word}), .rv_addr_full(rv_addr), .rv_din(rv_word ? rv_wdata[31:16] : rv_wdata[15:0]), 
-    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0)
+    .rv_ds(rv_ds), .rv_dout(rv_dout), .rv_req(rv_req), .rv_req_ack(rv_req_ack), .rv_we(rv_wstrb != 0),
+    .i_load_ongoing(wram_load_bsram)
     );
 `endif // USE_SDRAM_ARBITER
 

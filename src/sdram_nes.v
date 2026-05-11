@@ -67,14 +67,13 @@ module sdram_nes #(
     input      [20:1] rv_addr,      // 2MB RV memory space, bank 2
     input      [22:0] rv_addr_full,      // 2MB RV memory space, bank 2
     input      [15:0] rv_din,       // 16-bit accesses
-    input      [15:0] rv_din,       // 16-bit accesses
     input      [1:0]  rv_ds,
     output reg [15:0] rv_dout,
     input             rv_req,
     output reg        rv_req_ack,   // ready for new requests. read data available on NEXT mclk
     input             rv_we,
     // WRMA load from RV to
-    input wire i_load_ongoing,
+    input wire i_load_ongoing
 );
 
 localparam DQM_SIZE = SDRAM_DATA_WIDTH / 8;
@@ -108,7 +107,7 @@ reg wram_bsram_we;                // Write enable for wram_bsram
 wire cpu_address_is_wram_bsram = (addrB >= 'h6000) && (addrB < 'h8000); // 0x6000 to 0x7FFF
 
 // Address range detection for RV accesses to wram_bsram
-wire rv_address_is_wram_bsram = (rv_addr >= 23'h706000) && (rv_addr < 23'h708000);
+wire rv_address_is_wram_bsram = (rv_addr_full >= 23'h706000) && (rv_addr_full < 23'h708000);
 
 // Common address detection for read/write operations
 wire address_is_wram_bsram = (cpu_address_is_wram_bsram)||(rv_address_is_wram_bsram);
@@ -116,7 +115,7 @@ wire address_is_wram_bsram = (cpu_address_is_wram_bsram)||(rv_address_is_wram_bs
 // Write enable logic for wram_bsram
 wire wram_bsram_we_cpu = cpu_address_is_wram_bsram && weB;
 wire wram_bsram_we_rv = rv_address_is_wram_bsram && rv_we;
-wire wram_bsram_we_combined = rv_address_is_wram_bsram ? wram_bsram_we_rv : wram_bsram_we_cpu;
+wire wram_bsram_we_combined = (rv_address_is_wram_bsram && (i_load_ongoing || !cpu_address_is_wram_bsram)) ? wram_bsram_we_rv : wram_bsram_we_cpu;
 
 // always @(posedge clk) begin
 //     if (rst) begin
@@ -128,10 +127,10 @@ wire wram_bsram_we_combined = rv_address_is_wram_bsram ? wram_bsram_we_rv : wram
 
 // Write logic for wram_bsram
 wire [12:0] wram_bsram_addr_cpu = addrB[12:0];
-wire [12:0] wram_bsram_addr_rv = rv_addr[12:0];
+wire [12:0] wram_bsram_addr_rv = rv_addr_full[12:0];
 wire [12:0] wram_bsram_addr_combined = rv_address_is_wram_bsram ? wram_bsram_addr_rv : wram_bsram_addr_cpu;
 wire [7:0] wram_bsram_din_cpu = dinB;
-wire [7:0] wram_bsram_din_rv = rv_din;
+wire [7:0] wram_bsram_din_rv = rv_din[7:0];
 wire [7:0] wram_bsram_din_combined = rv_address_is_wram_bsram ? wram_bsram_din_rv : wram_bsram_din_cpu;
 always @(posedge clk) begin
     if (wram_bsram_we_combined) begin
@@ -144,7 +143,11 @@ wire wram_bsram_re_cpu = cpu_address_is_wram_bsram && oeB;
 wire wram_bsram_re_rv = rv_address_is_wram_bsram && (rv_req)&&(!rv_we);
 wire wram_bsram_re_combined = wram_bsram_re_cpu || wram_bsram_re_rv;
 wire [7:0] doutB_aux;
+reg  [7:0] r_doutB_aux;
+assign doutB_aux = r_doutB_aux;
 wire [15:0] rv_dout_aux;
+reg  [15:0] r_rv_dout_aux;
+assign rv_dout_aux = r_rv_dout_aux;
 always @(posedge clk) begin
     if (wram_bsram_re_combined) begin
         wram_bsram_dout <= wram_bsram[wram_bsram_addr_read]; // Read data from wram_bsram
@@ -152,7 +155,7 @@ always @(posedge clk) begin
 end
 
 // Read address logic for wram_bsram
-wire [12:0] wram_bsram_addr_read = wram_bsram_re_cpu ? addrB[12:0] : rv_addr[12:0];
+wire [12:0] wram_bsram_addr_read = wram_bsram_re_cpu ? addrB[12:0] : rv_addr_full[12:0];
 
 // Override SDRAM read data with wram_bsram data for 0x6000-0x7FFF (CPU) and 0x706000-0x708000 (RV)
 assign doutB = (cpu_address_is_wram_bsram)    ? wram_bsram_dout   : doutB_aux;
@@ -540,8 +543,8 @@ always @(posedge clk) begin
 `endif
 
                 case (port[0])
-                PORT_A: doutB_aux <= dq_byte;
-                PORT_B: doutB_aux <= dq_byte;
+                PORT_A: r_doutB_aux <= dq_byte;
+                PORT_B: r_doutB_aux <= dq_byte;
                 default: ;
                 endcase
             end
@@ -549,9 +552,9 @@ always @(posedge clk) begin
             // RV
             if (cycle[1] && oe_latch[1]) 
 `ifdef NANO
-                rv_dout_aux <= addr_latch[1][1] ? dq_in[31:16] : dq_in[15:0];
+                r_rv_dout_aux <= addr_latch[1][1] ? dq_in[31:16] : dq_in[15:0];
 `else
-                rv_dout_aux <= dq_in;
+                r_rv_dout_aux <= dq_in;
 `endif
         end
     end
