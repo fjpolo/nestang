@@ -55,7 +55,9 @@ module cart_top (
 	input             fds_busy,       // FDS Disk Swap Busy
 	input             fds_eject,      // FDS Disk Swap Pause
 	// Enhanced APU
-	input 			  i_enhanced_apu_ce
+	input 			  i_enhanced_apu_ce,
+	// Mode 7
+	input             i_mode7_enabled
 );
 
 tri0 prg_allow_b, vram_a10_b, vram_ce_b, chr_allow_b, irq_b;
@@ -286,7 +288,8 @@ MMC3 mmc3 (
 	.ppuflags   (ppuflags),
 	.chr_din    (chr_din),
 	.chr_dout_b (chr_dout_b),
-	.chr_write  (chr_write)
+	.chr_write  (chr_write),
+	.i_mode7_enabled(i_mode7_enabled)
 );
 
 //*****************************************************************************//

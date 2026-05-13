@@ -218,7 +218,8 @@ module MMC3 (
 	input [19:0] ppuflags,
 	input [7:0]  chr_din,
 	inout [7:0]  chr_dout_b,
-	input        chr_write
+	input        chr_write,
+	input        i_mode7_enabled
 );
 
 assign prg_aout_b   = enable ? prg_aout : 22'hZ;
@@ -571,9 +572,12 @@ assign vram_a10 = TxSROM ? chrsel[7] :              // TxSROM do not support mir
 assign vram_ce = chr_ain[13] && !four_screen_mirroring;
 
 // Mode 7 Hijack Bypass logic
-assign chr_dout_b = (enable && m7_enabled && ppu_rendering) ? 8'h00 : 8'hZ; // Placeholder for now
+// Basic processing: Checkerboard pattern based on scanline and cycle
+wire m7_active = m7_enabled | i_mode7_enabled;
+wire [7:0] m7_test_pattern = (ppu_scanline[4] ^ ppu_cycle[4]) ? 8'hFF : 8'h00;
+assign chr_dout_b = (enable && m7_active && ppu_rendering) ? m7_test_pattern : 8'hZ;
 always @(posedge clk) begin
-	flags_out[0] <= m7_enabled && ppu_rendering; // has_chr_dout
+	flags_out[0] <= m7_active && ppu_rendering; // has_chr_dout
 end
 
 endmodule

@@ -276,7 +276,8 @@ NES nes(
     .apu_ce(), .gg(), .gg_code(), .gg_avail(), .gg_reset(), .emphasis(), .save_written(),
     // Enhanced APU
     .i_APU_enhancements_ce(NES_enhanced_APU),
-    .i_APU_mapper_saturates((NES_mapper == 8'h04)||(NES_mapper == 8'h45))   // Mapper4/MMC3 and Mapper69 saturate so far
+    .i_APU_mapper_saturates((NES_mapper == 8'h04)||(NES_mapper == 8'h45)),   // Mapper4/MMC3 and Mapper69 saturate so far
+    .i_mode7_enabled(NES_mode7_enabled)
 );
 
 // loader_write -> clock when data available
@@ -513,7 +514,9 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .o_sys_type(system_type),
     
     // Aspect Ratio
-    .o_reg_aspect_ratio(NES_aspect_ratio)
+    .o_reg_aspect_ratio(NES_aspect_ratio),
+    // Mode 7
+    .o_reg_mode7_enabled(NES_mode7_enabled)
 );
 
 // Controller input
@@ -648,6 +651,8 @@ cheat_wizard(
 // Aspect Ratio
 reg NES_aspect_ratio;
 initial NES_aspect_ratio = 1'b0;
+// Mode 7
+wire NES_mode7_enabled;
 
 // assign led[0] = ~NES_cheats_enabled;
 // assign led[1] = ~NES_cheats_loaded;

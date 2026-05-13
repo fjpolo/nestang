@@ -121,7 +121,8 @@ module NES(
 	output        save_written,
 	// Enhanced APU
 	input 		  i_APU_enhancements_ce,
-	input		  i_APU_mapper_saturates
+	input		  i_APU_mapper_saturates,
+	input         i_mode7_enabled
 );
 
 
@@ -502,7 +503,9 @@ cart_top multi_mapper (
 	.diskside_auto     (diskside_req),
 	.diskside          (diskside),
 	// Enhanced APU
-	.i_enhanced_apu_ce(NES_APU_enhancements_ce)
+	.i_enhanced_apu_ce(NES_APU_enhancements_ce),
+	// Mode 7
+	.i_mode7_enabled(i_mode7_enabled)
 );
 
 wire genie_ovr;

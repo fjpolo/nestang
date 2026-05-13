@@ -112,7 +112,9 @@ module iosys #(
     // System Type
     output wire [1:0] o_sys_type,
     // Aspect Ratio
-    output wire o_reg_aspect_ratio
+    output wire o_reg_aspect_ratio,
+    // Mode 7
+    output wire o_reg_mode7_enabled
 );
 
 /* verilator lint_off PINMISSING */
@@ -244,6 +246,8 @@ wire        id_reg_aspect_ratio = mem_valid && (mem_addr == 32'h0200_01E0);
 wire        id_reg_timer_interrupts = mem_valid && (mem_addr == 32'h0200_0200);
 // Timer0 Load Register
 wire        id_reg_timer0_load_value = mem_valid && (mem_addr == 32'h0200_0220);
+// Mode 7
+wire        id_reg_mode7_enabled_sel = mem_valid && (mem_addr == 32'h0200_0240);
 
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
             romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel || cycle_reg_sel || id_reg_sel ||
@@ -254,6 +258,7 @@ assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel 
             id_reg_aspect_ratio ||
             id_reg_timer_interrupts || 
             id_reg_timer0_load_value ||
+            id_reg_mode7_enabled_sel ||
             id_reg_cheats_sel_0 || id_reg_cheats_sel_1 || id_reg_cheats_sel_2 || id_reg_cheats_sel_3 ||
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait) ||
@@ -277,6 +282,7 @@ assign mem_rdata = ram_ready ? ram_rdata :
         id_reg_aspect_ratio ? {31'b000_0000_0000_0000, reg_aspect_ratio} :
         id_reg_timer_interrupts ? {reg_timer_interrupts} :
         id_reg_timer0_load_value ? {reg_timer0_load_value} :
+        id_reg_mode7_enabled_sel ? {31'b0, reg_mode7_enabled} :
         id_reg_cheats_sel_3 ? reg_cheats[128:96] :
         id_reg_cheats_sel_2 ? reg_cheats[95:64] :
         id_reg_cheats_sel_1 ? reg_cheats[63:32] :
@@ -634,6 +640,16 @@ always @(posedge clk)
         timer0_counter <= timer0_counter + 1;
     else
         timer0_counter <= 32'h0;
+// Mode 7
+reg reg_mode7_enabled;
+initial reg_mode7_enabled = 1'b0;
+always @(posedge clk) begin
+    if (~resetn)
+        reg_mode7_enabled <= 1'b0;
+    else if (id_reg_mode7_enabled_sel && mem_wstrb[0])
+        reg_mode7_enabled <= mem_wdata[0];
+end
+assign o_reg_mode7_enabled = reg_mode7_enabled;
 
 endmodule
 
