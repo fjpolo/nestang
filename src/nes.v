@@ -125,8 +125,8 @@ module NES(
 	input         i_mode7_enabled,
 	input [23:0]  i_m7_u0, i_m7_v0,
 	input [15:0]  i_m7_a, i_m7_b, i_m7_c, i_m7_d,
-	input [13:0]  i_m7_tex_addr,
-	input [1:0]   i_m7_tex_data,
+	input [15:0]  i_m7_tex_addr,
+	input [7:0]   i_m7_tex_data,
 	input         i_m7_tex_we
 );
 

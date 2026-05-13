@@ -222,8 +222,8 @@ module MMC3 (
 	input        i_mode7_enabled,
 	input [23:0] i_m7_u0, i_m7_v0,
 	input [15:0] i_m7_a, i_m7_b, i_m7_c, i_m7_d,
-	input [13:0] i_m7_tex_addr,
-	input [1:0]  i_m7_tex_data,
+	input [15:0] i_m7_tex_addr,
+	input [7:0]  i_m7_tex_data,
 	input        i_m7_tex_we
 );
 
@@ -257,24 +257,28 @@ wire [8:0] ppu_cycle    = ppuflags[10:2];
 wire       ppu_obj_size = ppuflags[1];
 wire       ppu_rendering= ppuflags[0];
 
-// Mode 7 Texture RAM (128x128, 2bpp = 4KB)
-reg [1:0] texture_ram [16383];
-wire [13:0] tex_cpu_addr = {prg_ain[11:0], 2'b00}; // Map $6000-$6FFF to 4KB (simplified)
-// Wait, $6000-$6FFF is 4KB. 128*128 pixels = 16384 pixels.
-// If 2bpp, that's 4 pixels per byte? No, let's keep it 1 pixel per byte for simplicity if we have BRAM.
-// 16KB BRAM = 8 BSRAMs. Still fine.
-// Actually, let's do 2bpp packed: 4 pixels per byte. 4KB total.
-// addr = (v << 7) | u.
-// byte_addr = (v << 7 | u) >> 2.
-// pixel_idx = (u & 3).
+// Mode 7 Hardware Map Engine
+// Mode 7 Hardware Map Engine
+// Map RAM: 1024 bytes (32x32 Tile IDs)
+reg [7:0] map_ram [1023:0];
+// Tile RAM: 4096 bytes (256 tiles, 8x8 pixels @ 2bpp)
+reg [1:0] tile_ram [16383:0];
 
+// Memory Writing
 always @(posedge clk) begin
 	if (i_m7_tex_we) begin
-		texture_ram[i_m7_tex_addr] <= i_m7_tex_data;
-	end else if (ce && prg_write && prg_ain[15:12] == 4'h6) begin
-		texture_ram[prg_ain[13:0]] <= prg_din[1:0]; // Direct mapping for now: $4000-$7FFF range for texture
+		if (i_m7_tex_addr[15]) begin
+			// Tile RAM access (Addr 0x8000+)
+			tile_ram[i_m7_tex_addr[13:0]] <= i_m7_tex_data[1:0];
+		end else begin
+			// Map RAM access (Addr 0x0000-0x03FF)
+			map_ram[i_m7_tex_addr[9:0]] <= i_m7_tex_data[7:0];
+		end
 	end
 end
+
+reg [7:0] tile_id;
+reg [13:0] tile_addr;
 
 reg [2:0] bank_select;             // Register to write to next
 reg prg_rom_bank_mode;             // Mode for PRG banking
@@ -612,51 +616,86 @@ wire [15:0] cur_b  = i_mode7_enabled ? i_m7_b  : m7_b;
 wire [15:0] cur_c  = i_mode7_enabled ? i_m7_c  : m7_c;
 wire [15:0] cur_d  = i_mode7_enabled ? i_m7_d  : m7_d;
 
-always @(posedge clk) if (ce) begin
-	// Frame initialization (Reset line accumulators during V-Blank)
-	if (ppu_scanline == 241 && ppu_cycle == 0) begin
-		u_line <= cur_u0;
-		v_line <= cur_v0;
-	end
+reg [3:0] sample_state;
+reg [23:0] u_sample, v_sample;
+reg [8:0] ppu_cycle_old;
+wire ppu_cycle_change = (ppu_cycle != ppu_cycle_old);
 
-	// Scanline transition
-	if (ppu_cycle == 340) begin
-		u_line <= u_line + $signed({cur_b[15] ? 8'hFF : 8'h00, cur_b});
-		v_line <= v_line + $signed({cur_d[15] ? 8'hFF : 8'h00, cur_d});
-	end
+reg [23:0] u_tile_start, v_tile_start;
 
-	// Pixel tracking during rendering
-	if (ppu_rendering) begin
-		if (ppu_cycle == 0) begin
-			u_acc <= u_line;
-			v_acc <= v_line;
-		end else begin
-			u_acc <= u_acc + $signed({cur_a[15] ? 8'hFF : 8'h00, cur_a});
-			v_acc <= v_acc + $signed({cur_c[15] ? 8'hFF : 8'h00, cur_c});
+always @(posedge clk) begin
+	if (ce) ppu_cycle_old <= ppu_cycle;
+
+	if (ce && ppu_cycle_change) begin
+		// Frame initialization (V-Blank)
+		if (ppu_scanline == 241 && ppu_cycle == 0) begin
+			u_line <= cur_u0;
+			v_line <= cur_v0;
 		end
 
-		// Sample texture and pack bitplanes (8 cycles per tile)
-		// We sample the pixel that WILL BE rendered in the next block? 
-		// No, the PPU fetches for the NEXT tile.
-		// So we should use coordinates for (current_tile + 1) * 8 + cycle[2:0]
-		// Actually, let's just use the current u_acc/v_acc and see.
-		
-		pt0_pack <= {pt0_pack[6:0], texture_ram[{v_acc[14:8], u_acc[14:8]}][0]};
-		pt1_pack <= {pt1_pack[6:0], texture_ram[{v_acc[14:8], u_acc[14:8]}][1]};
+		// Scanline transition (At start of h-blank/pre-fetch)
+		if (ppu_cycle == 257) begin
+			u_line <= u_line + $signed({cur_b[15] ? 8'hFF : 8'h00, cur_b});
+			v_line <= v_line + $signed({cur_d[15] ? 8'hFF : 8'h00, cur_d});
+		end
 
-		// Latch the packed bytes at the end of the 8-cycle fetch
-		if (ppu_cycle[2:0] == 7) begin
+		// Detect start of ANY 8-cycle fetch block
+		// PPU fetches Tiles 1-2 at 321-336, and Tiles 3-34 at 1-256.
+		if (ppu_rendering && ppu_cycle[2:0] == 1) begin
+			// Calculate the X coordinate for this tile
+			// X = 0 for Tile 1, 8 for Tile 2, 16 for Tile 3...
+			automatic logic [8:0] tile_x = (ppu_cycle >= 321) ? (ppu_cycle - 321) : (ppu_cycle + 15);
+			
+			// tile_x * A and tile_x * C
+			// We use the u_line (which was already updated for the next line if we are in pre-fetch)
+			u_tile_start <= u_line + $signed(tile_x) * $signed({1'b0, cur_a});
+			v_tile_start <= v_line + $signed(tile_x) * $signed({1'b0, cur_c});
+			
+			sample_state <= 1;
+		end
+	end
+
+	// High-speed sampling burst (Tiled Map Engine: Map -> Tile -> Pixel)
+	if (sample_state != 0) begin
+		if (sample_state <= 8) begin
+			// Stage 1: Map Lookup Address
+			v_sample <= {v_tile_start[12:8], u_tile_start[12:8]}; // Map X,Y (5 bits each)
+			// Also store fine coordinates for Stage 2
+			u_acc <= u_tile_start; // Reusing u_acc for fine coordinate storage
+			v_acc <= v_tile_start; // Reusing v_acc for fine coordinate storage
+			u_tile_start <= u_tile_start + $signed({cur_a[15] ? 8'hFF : 8'h00, cur_a});
+			v_tile_start <= v_tile_start + $signed({cur_c[15] ? 8'hFF : 8'h00, cur_c});
+			sample_state <= sample_state + 1;
+		end else if (sample_state < 13) begin
+			sample_state <= sample_state + 1;
+		end
+		
+		// Stage 2: Map Data (Tile ID) is available
+		if (sample_state >= 3 && sample_state <= 10) begin
+			tile_id <= map_ram[v_sample[9:0]];
+		end
+
+		// Stage 3: Tile Data Lookup Address
+		if (sample_state >= 4 && sample_state <= 11) begin
+			// Tile ID (8 bits) + Fine V (3 bits) + Fine U (3 bits) = 14 bits
+			tile_addr <= {tile_id, v_acc[10:8], u_acc[10:8]};
+		end
+
+		// Stage 4: Tile Pixel is available
+		if (sample_state >= 5 && sample_state <= 12) begin
+			pt0_pack <= {pt0_pack[6:0], tile_ram[tile_addr][0]};
+			pt1_pack <= {pt1_pack[6:0], tile_ram[tile_addr][1]};
+		end
+
+		if (sample_state == 13) begin
 			pt0_latch <= pt0_pack;
 			pt1_latch <= pt1_pack;
+			sample_state <= 0;
 		end
 	end
 end
 
 // Inject data into PPU bus
-// NT fetch (cycles 0-1) -> Return 0x00 (Dummy tile)
-// AT fetch (cycles 2-3) -> Return 0x00 (Palette 0)
-// PT0 fetch (cycles 4-5) -> Return pt0_latch
-// PT1 fetch (cycles 6-7) -> Return pt1_latch
 assign chr_dout_b = (enable && m7_active && ppu_rendering) ? (
 	(ppu_cycle[2:1] == 0) ? 8'h00 : // NT
 	(ppu_cycle[2:1] == 1) ? 8'h00 : // AT

@@ -121,8 +121,8 @@ module iosys #(
     output wire [15:0] o_reg_m7_b,
     output wire [15:0] o_reg_m7_c,
     output wire [15:0] o_reg_m7_d,
-    output wire [13:0] o_reg_m7_tex_addr,
-    output wire [1:0] o_reg_m7_tex_data,
+    output wire [15:0] o_reg_m7_tex_addr,
+    output wire [7:0] o_reg_m7_tex_data,
     output wire o_reg_m7_tex_we
 );
 
@@ -697,15 +697,15 @@ assign o_reg_m7_b = reg_m7_b;
 assign o_reg_m7_c = reg_m7_c;
 assign o_reg_m7_d = reg_m7_d;
 
-reg [13:0] reg_m7_tex_addr;
-reg [1:0] reg_m7_tex_data;
+reg [15:0] reg_m7_tex_addr;
+reg [7:0] reg_m7_tex_data;
 reg reg_m7_tex_we;
 
 always @(posedge clk) begin
     reg_m7_tex_we <= 0;
     if (mem_valid && id_reg_m7_tex_sel && mem_wstrb) begin
-        reg_m7_tex_addr <= mem_wdata[15:2];
-        reg_m7_tex_data <= mem_wdata[1:0];
+        reg_m7_tex_addr <= mem_wdata[31:8]; // [31:8] is the address
+        reg_m7_tex_data <= mem_wdata[7:0];   // [7:0] is the data
         reg_m7_tex_we <= 1;
     end
 end

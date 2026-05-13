@@ -673,8 +673,8 @@ initial NES_aspect_ratio = 1'b0;
 wire NES_mode7_enabled;
 wire [23:0] NES_m7_u0, NES_m7_v0;
 wire [15:0] NES_m7_a, NES_m7_b, NES_m7_c, NES_m7_d;
-wire [13:0] NES_m7_tex_addr;
-wire [1:0] NES_m7_tex_data;
+wire [15:0] NES_m7_tex_addr;
+wire [7:0] NES_m7_tex_data;
 wire NES_m7_tex_we;
 
 // assign led[0] = ~NES_cheats_enabled;
