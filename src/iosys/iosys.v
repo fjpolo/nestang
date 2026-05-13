@@ -114,7 +114,16 @@ module iosys #(
     // Aspect Ratio
     output wire o_reg_aspect_ratio,
     // Mode 7
-    output wire o_reg_mode7_enabled
+    output wire o_reg_mode7_enabled,
+    output wire [23:0] o_reg_m7_u0,
+    output wire [23:0] o_reg_m7_v0,
+    output wire [15:0] o_reg_m7_a,
+    output wire [15:0] o_reg_m7_b,
+    output wire [15:0] o_reg_m7_c,
+    output wire [15:0] o_reg_m7_d,
+    output wire [13:0] o_reg_m7_tex_addr,
+    output wire [1:0] o_reg_m7_tex_data,
+    output wire o_reg_m7_tex_we
 );
 
 /* verilator lint_off PINMISSING */
@@ -248,6 +257,13 @@ wire        id_reg_timer_interrupts = mem_valid && (mem_addr == 32'h0200_0200);
 wire        id_reg_timer0_load_value = mem_valid && (mem_addr == 32'h0200_0220);
 // Mode 7
 wire        id_reg_mode7_enabled_sel = mem_valid && (mem_addr == 32'h0200_0240);
+wire        id_reg_m7_u0_sel = mem_valid && (mem_addr == 32'h0200_0250);
+wire        id_reg_m7_v0_sel = mem_valid && (mem_addr == 32'h0200_0260);
+wire        id_reg_m7_a_sel  = mem_valid && (mem_addr == 32'h0200_0270);
+wire        id_reg_m7_b_sel  = mem_valid && (mem_addr == 32'h0200_0280);
+wire        id_reg_m7_c_sel  = mem_valid && (mem_addr == 32'h0200_0290);
+wire        id_reg_m7_d_sel  = mem_valid && (mem_addr == 32'h0200_02A0);
+wire        id_reg_m7_tex_sel= mem_valid && (mem_addr == 32'h0200_02B0);
 
 assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel || 
             romload_reg_ctrl_sel || romload_reg_data_sel || joystick_reg_sel || time_reg_sel || id_reg_sel || cycle_reg_sel || id_reg_sel ||
@@ -258,7 +274,9 @@ assign mem_ready = ram_ready || textdisp_reg_char_sel || simpleuart_reg_div_sel 
             id_reg_aspect_ratio ||
             id_reg_timer_interrupts || 
             id_reg_timer0_load_value ||
-            id_reg_mode7_enabled_sel ||
+            id_reg_mode7_enabled_sel || id_reg_m7_u0_sel || id_reg_m7_v0_sel || 
+            id_reg_m7_a_sel || id_reg_m7_b_sel || id_reg_m7_c_sel || id_reg_m7_d_sel ||
+            id_reg_m7_tex_sel ||
             id_reg_cheats_sel_0 || id_reg_cheats_sel_1 || id_reg_cheats_sel_2 || id_reg_cheats_sel_3 ||
             (simpleuart_reg_dat_sel && !simpleuart_reg_dat_wait) ||
             ((simplespimaster_reg_byte_sel || simplespimaster_reg_word_sel) && !simplespimaster_reg_wait) ||
@@ -283,6 +301,12 @@ assign mem_rdata = ram_ready ? ram_rdata :
         id_reg_timer_interrupts ? {reg_timer_interrupts} :
         id_reg_timer0_load_value ? {reg_timer0_load_value} :
         id_reg_mode7_enabled_sel ? {31'b0, reg_mode7_enabled} :
+        id_reg_m7_u0_sel ? {8'h00, reg_m7_u0} :
+        id_reg_m7_v0_sel ? {8'h00, reg_m7_v0} :
+        id_reg_m7_a_sel ? {16'h0000, reg_m7_a} :
+        id_reg_m7_b_sel ? {16'h0000, reg_m7_b} :
+        id_reg_m7_c_sel ? {16'h0000, reg_m7_c} :
+        id_reg_m7_d_sel ? {16'h0000, reg_m7_d} :
         id_reg_cheats_sel_3 ? reg_cheats[128:96] :
         id_reg_cheats_sel_2 ? reg_cheats[95:64] :
         id_reg_cheats_sel_1 ? reg_cheats[63:32] :
@@ -650,6 +674,45 @@ always @(posedge clk) begin
         reg_mode7_enabled <= mem_wdata[0];
 end
 assign o_reg_mode7_enabled = reg_mode7_enabled;
+
+reg [23:0] reg_m7_u0, reg_m7_v0;
+reg [15:0] reg_m7_a, reg_m7_b, reg_m7_c, reg_m7_d;
+
+always @(posedge clk) if (mem_valid && !resetn) begin
+    reg_m7_u0 <= 0; reg_m7_v0 <= 0;
+    reg_m7_a <= 16'h0100; reg_m7_b <= 0; reg_m7_c <= 0; reg_m7_d <= 16'h0100;
+end else if (mem_valid) begin
+    if (id_reg_m7_u0_sel) reg_m7_u0 <= mem_wdata[23:0];
+    if (id_reg_m7_v0_sel) reg_m7_v0 <= mem_wdata[23:0];
+    if (id_reg_m7_a_sel)  reg_m7_a  <= mem_wdata[15:0];
+    if (id_reg_m7_b_sel)  reg_m7_b  <= mem_wdata[15:0];
+    if (id_reg_m7_c_sel)  reg_m7_c  <= mem_wdata[15:0];
+    if (id_reg_m7_d_sel)  reg_m7_d  <= mem_wdata[15:0];
+end
+
+assign o_reg_m7_u0 = reg_m7_u0;
+assign o_reg_m7_v0 = reg_m7_v0;
+assign o_reg_m7_a = reg_m7_a;
+assign o_reg_m7_b = reg_m7_b;
+assign o_reg_m7_c = reg_m7_c;
+assign o_reg_m7_d = reg_m7_d;
+
+reg [13:0] reg_m7_tex_addr;
+reg [1:0] reg_m7_tex_data;
+reg reg_m7_tex_we;
+
+always @(posedge clk) begin
+    reg_m7_tex_we <= 0;
+    if (mem_valid && id_reg_m7_tex_sel && mem_wstrb) begin
+        reg_m7_tex_addr <= mem_wdata[15:2];
+        reg_m7_tex_data <= mem_wdata[1:0];
+        reg_m7_tex_we <= 1;
+    end
+end
+
+assign o_reg_m7_tex_addr = reg_m7_tex_addr;
+assign o_reg_m7_tex_data = reg_m7_tex_data;
+assign o_reg_m7_tex_we = reg_m7_tex_we;
 
 endmodule
 

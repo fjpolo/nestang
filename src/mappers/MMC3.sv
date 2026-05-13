@@ -219,7 +219,12 @@ module MMC3 (
 	input [7:0]  chr_din,
 	inout [7:0]  chr_dout_b,
 	input        chr_write,
-	input        i_mode7_enabled
+	input        i_mode7_enabled,
+	input [23:0] i_m7_u0, i_m7_v0,
+	input [15:0] i_m7_a, i_m7_b, i_m7_c, i_m7_d,
+	input [13:0] i_m7_tex_addr,
+	input [1:0]  i_m7_tex_data,
+	input        i_m7_tex_we
 );
 
 assign prg_aout_b   = enable ? prg_aout : 22'hZ;
@@ -245,13 +250,31 @@ reg [15:0] flags_out = 0;
 // Mode 7 Registers
 reg        m7_enabled = 0;
 reg [15:0] m7_a, m7_b, m7_c, m7_d;
-reg [15:0] m7_x0, m7_y0;
-reg [15:0] m7_scx, m7_scy;
+reg [23:0] m7_u0, m7_v0;
 
 wire [8:0] ppu_scanline = ppuflags[19:11];
 wire [8:0] ppu_cycle    = ppuflags[10:2];
 wire       ppu_obj_size = ppuflags[1];
 wire       ppu_rendering= ppuflags[0];
+
+// Mode 7 Texture RAM (128x128, 2bpp = 4KB)
+reg [1:0] texture_ram [16383];
+wire [13:0] tex_cpu_addr = {prg_ain[11:0], 2'b00}; // Map $6000-$6FFF to 4KB (simplified)
+// Wait, $6000-$6FFF is 4KB. 128*128 pixels = 16384 pixels.
+// If 2bpp, that's 4 pixels per byte? No, let's keep it 1 pixel per byte for simplicity if we have BRAM.
+// 16KB BRAM = 8 BSRAMs. Still fine.
+// Actually, let's do 2bpp packed: 4 pixels per byte. 4KB total.
+// addr = (v << 7) | u.
+// byte_addr = (v << 7 | u) >> 2.
+// pixel_idx = (u & 3).
+
+always @(posedge clk) begin
+	if (i_m7_tex_we) begin
+		texture_ram[i_m7_tex_addr] <= i_m7_tex_data;
+	end else if (ce && prg_write && prg_ain[15:12] == 4'h6) begin
+		texture_ram[prg_ain[13:0]] <= prg_din[1:0]; // Direct mapping for now: $4000-$7FFF range for texture
+	end
+end
 
 reg [2:0] bank_select;             // Register to write to next
 reg prg_rom_bank_mode;             // Mode for PRG banking
@@ -330,10 +353,8 @@ if (~enable) begin
 	m7_b <= 16'h0000;
 	m7_c <= 16'h0000;
 	m7_d <= 16'h0100; // Unity scale
-	m7_x0 <= 16'h0000;
-	m7_y0 <= 16'h0000;
-	m7_scx <= 16'h0000;
-	m7_scy <= 16'h0000;
+	m7_u0 <= 24'h000000;
+	m7_v0 <= 24'h000000;
 end else if (ce) begin
 	irq_reg[4:1] <= irq_reg[3:0]; // 4 cycle delay
 	if (!regs_7e && prg_write && prg_ain[15]) begin
@@ -411,18 +432,20 @@ end else if (ce) begin
 		// Mode 7 register writes at $5000-$500F
 		case (prg_ain[3:0])
 			4'h0: m7_enabled <= prg_din[0];
-			4'h1: m7_a[7:0]   <= prg_din;
-			4'h2: m7_a[15:8]  <= prg_din;
-			4'h3: m7_b[7:0]   <= prg_din;
-			4'h4: m7_b[15:8]  <= prg_din;
-			4'h5: m7_c[7:0]   <= prg_din;
-			4'h6: m7_c[15:8]  <= prg_din;
-			4'h7: m7_d[7:0]   <= prg_din;
-			4'h8: m7_d[15:8]  <= prg_din;
-			4'h9: m7_x0[7:0]  <= prg_din;
-			4'hA: m7_x0[15:8] <= prg_din;
-			4'hB: m7_y0[7:0]  <= prg_din;
-			4'hC: m7_y0[15:8] <= prg_din;
+			4'h1: m7_u0[7:0]   <= prg_din;
+			4'h2: m7_u0[15:8]  <= prg_din;
+			4'h3: m7_u0[23:16] <= prg_din;
+			4'h4: m7_v0[7:0]   <= prg_din;
+			4'h5: m7_v0[15:8]  <= prg_din;
+			4'h6: m7_v0[23:16] <= prg_din;
+			4'h7: m7_a[7:0]    <= prg_din;
+			4'h8: m7_a[15:8]   <= prg_din;
+			4'h9: m7_b[7:0]    <= prg_din;
+			4'hA: m7_b[15:8]   <= prg_din;
+			4'hB: m7_c[7:0]    <= prg_din;
+			4'hC: m7_c[15:8]   <= prg_din;
+			4'hD: m7_d[7:0]    <= prg_din;
+			4'hE: m7_d[15:8]   <= prg_din;
 			default: ;
 		endcase
 	end
@@ -571,11 +594,76 @@ assign vram_a10 = TxSROM ? chrsel[7] :              // TxSROM do not support mir
 					(mirroring ? chr_ain[10] : chr_ain[11]);
 assign vram_ce = chr_ain[13] && !four_screen_mirroring;
 
-// Mode 7 Hijack Bypass logic
-// Basic processing: Checkerboard pattern based on scanline and cycle
+// Mode 7 Hijack & Affine Transformation Logic
 wire m7_active = m7_enabled | i_mode7_enabled;
-wire [7:0] m7_test_pattern = (ppu_scanline[4] ^ ppu_cycle[4]) ? 8'hFF : 8'h00;
-assign chr_dout_b = (enable && m7_active && ppu_rendering) ? m7_test_pattern : 8'hZ;
+
+// Fixed point math (16.8)
+reg signed [23:0] u_line, v_line;
+reg signed [23:0] u_acc, v_acc;
+reg [7:0] pt0_latch, pt1_latch;
+reg [7:0] pt0_pack, pt1_pack;
+
+// State machine for sampling and coordinate tracking
+wire m7_active = m7_enabled | i_mode7_enabled;
+wire [23:0] cur_u0 = i_mode7_enabled ? i_m7_u0 : m7_u0;
+wire [23:0] cur_v0 = i_mode7_enabled ? i_m7_v0 : m7_v0;
+wire [15:0] cur_a  = i_mode7_enabled ? i_m7_a  : m7_a;
+wire [15:0] cur_b  = i_mode7_enabled ? i_m7_b  : m7_b;
+wire [15:0] cur_c  = i_mode7_enabled ? i_m7_c  : m7_c;
+wire [15:0] cur_d  = i_mode7_enabled ? i_m7_d  : m7_d;
+
+always @(posedge clk) if (ce) begin
+	// Frame initialization (Reset line accumulators during V-Blank)
+	if (ppu_scanline == 241 && ppu_cycle == 0) begin
+		u_line <= cur_u0;
+		v_line <= cur_v0;
+	end
+
+	// Scanline transition
+	if (ppu_cycle == 340) begin
+		u_line <= u_line + $signed({cur_b[15] ? 8'hFF : 8'h00, cur_b});
+		v_line <= v_line + $signed({cur_d[15] ? 8'hFF : 8'h00, cur_d});
+	end
+
+	// Pixel tracking during rendering
+	if (ppu_rendering) begin
+		if (ppu_cycle == 0) begin
+			u_acc <= u_line;
+			v_acc <= v_line;
+		end else begin
+			u_acc <= u_acc + $signed({cur_a[15] ? 8'hFF : 8'h00, cur_a});
+			v_acc <= v_acc + $signed({cur_c[15] ? 8'hFF : 8'h00, cur_c});
+		end
+
+		// Sample texture and pack bitplanes (8 cycles per tile)
+		// We sample the pixel that WILL BE rendered in the next block? 
+		// No, the PPU fetches for the NEXT tile.
+		// So we should use coordinates for (current_tile + 1) * 8 + cycle[2:0]
+		// Actually, let's just use the current u_acc/v_acc and see.
+		
+		pt0_pack <= {pt0_pack[6:0], texture_ram[{v_acc[14:8], u_acc[14:8]}][0]};
+		pt1_pack <= {pt1_pack[6:0], texture_ram[{v_acc[14:8], u_acc[14:8]}][1]};
+
+		// Latch the packed bytes at the end of the 8-cycle fetch
+		if (ppu_cycle[2:0] == 7) begin
+			pt0_latch <= pt0_pack;
+			pt1_latch <= pt1_pack;
+		end
+	end
+end
+
+// Inject data into PPU bus
+// NT fetch (cycles 0-1) -> Return 0x00 (Dummy tile)
+// AT fetch (cycles 2-3) -> Return 0x00 (Palette 0)
+// PT0 fetch (cycles 4-5) -> Return pt0_latch
+// PT1 fetch (cycles 6-7) -> Return pt1_latch
+assign chr_dout_b = (enable && m7_active && ppu_rendering) ? (
+	(ppu_cycle[2:1] == 0) ? 8'h00 : // NT
+	(ppu_cycle[2:1] == 1) ? 8'h00 : // AT
+	(ppu_cycle[2:1] == 2) ? pt0_latch : // PT0
+	pt1_latch // PT1
+) : 8'hZ;
+
 always @(posedge clk) begin
 	flags_out[0] <= m7_active && ppu_rendering; // has_chr_dout
 end

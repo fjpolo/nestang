@@ -122,7 +122,12 @@ module NES(
 	// Enhanced APU
 	input 		  i_APU_enhancements_ce,
 	input		  i_APU_mapper_saturates,
-	input         i_mode7_enabled
+	input         i_mode7_enabled,
+	input [23:0]  i_m7_u0, i_m7_v0,
+	input [15:0]  i_m7_a, i_m7_b, i_m7_c, i_m7_d,
+	input [13:0]  i_m7_tex_addr,
+	input [1:0]   i_m7_tex_data,
+	input         i_m7_tex_we
 );
 
 
@@ -505,7 +510,16 @@ cart_top multi_mapper (
 	// Enhanced APU
 	.i_enhanced_apu_ce(NES_APU_enhancements_ce),
 	// Mode 7
-	.i_mode7_enabled(i_mode7_enabled)
+	.i_mode7_enabled(i_mode7_enabled),
+	.i_m7_u0(i_m7_u0),
+	.i_m7_v0(i_m7_v0),
+	.i_m7_a(i_m7_a),
+	.i_m7_b(i_m7_b),
+	.i_m7_c(i_m7_c),
+	.i_m7_d(i_m7_d),
+	.i_m7_tex_addr(i_m7_tex_addr),
+	.i_m7_tex_data(i_m7_tex_data),
+	.i_m7_tex_we(i_m7_tex_we)
 );
 
 wire genie_ovr;

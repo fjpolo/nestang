@@ -277,7 +277,16 @@ NES nes(
     // Enhanced APU
     .i_APU_enhancements_ce(NES_enhanced_APU),
     .i_APU_mapper_saturates((NES_mapper == 8'h04)||(NES_mapper == 8'h45)),   // Mapper4/MMC3 and Mapper69 saturate so far
-    .i_mode7_enabled(NES_mode7_enabled)
+    .i_mode7_enabled(NES_mode7_enabled),
+    .i_m7_u0(NES_m7_u0),
+    .i_m7_v0(NES_m7_v0),
+    .i_m7_a(NES_m7_a),
+    .i_m7_b(NES_m7_b),
+    .i_m7_c(NES_m7_c),
+    .i_m7_d(NES_m7_d),
+    .i_m7_tex_addr(NES_m7_tex_addr),
+    .i_m7_tex_data(NES_m7_tex_data),
+    .i_m7_tex_we(NES_m7_tex_we)
 );
 
 // loader_write -> clock when data available
@@ -516,7 +525,16 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     // Aspect Ratio
     .o_reg_aspect_ratio(NES_aspect_ratio),
     // Mode 7
-    .o_reg_mode7_enabled(NES_mode7_enabled)
+    .o_reg_mode7_enabled(NES_mode7_enabled),
+    .o_reg_m7_u0(NES_m7_u0),
+    .o_reg_m7_v0(NES_m7_v0),
+    .o_reg_m7_a(NES_m7_a),
+    .o_reg_m7_b(NES_m7_b),
+    .o_reg_m7_c(NES_m7_c),
+    .o_reg_m7_d(NES_m7_d),
+    .o_reg_m7_tex_addr(NES_m7_tex_addr),
+    .o_reg_m7_tex_data(NES_m7_tex_data),
+    .o_reg_m7_tex_we(NES_m7_tex_we)
 );
 
 // Controller input
@@ -653,6 +671,11 @@ reg NES_aspect_ratio;
 initial NES_aspect_ratio = 1'b0;
 // Mode 7
 wire NES_mode7_enabled;
+wire [23:0] NES_m7_u0, NES_m7_v0;
+wire [15:0] NES_m7_a, NES_m7_b, NES_m7_c, NES_m7_d;
+wire [13:0] NES_m7_tex_addr;
+wire [1:0] NES_m7_tex_data;
+wire NES_m7_tex_we;
 
 // assign led[0] = ~NES_cheats_enabled;
 // assign led[1] = ~NES_cheats_loaded;
