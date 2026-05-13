@@ -625,121 +625,14 @@ assign vram_a10 = TxSROM ? chrsel[7] :              // TxSROM do not support mir
 					(mirroring ? chr_ain[10] : chr_ain[11]);
 assign vram_ce = chr_ain[13] && !four_screen_mirroring;
 
-// Mode 7 Hijack & Affine Transformation Logic
-wire m7_active = m7_enabled | i_mode7_enabled;
-
-// Fixed point math (16.8)
-reg signed [23:0] u_line, v_line;
-reg [23:0] u_pipe [1:0];
-reg [23:0] v_pipe [1:0];
-reg [7:0] pt0_latch, pt1_latch;
-reg [7:0] pt0_pack, pt1_pack;
-
-// State machine for sampling and coordinate tracking
-wire [23:0] cur_u0 = i_mode7_enabled ? i_m7_u0 : m7_u0;
-wire [23:0] cur_v0 = i_mode7_enabled ? i_m7_v0 : m7_v0;
-wire [15:0] cur_a  = i_mode7_enabled ? i_m7_a  : m7_a;
-wire [15:0] cur_b  = i_mode7_enabled ? i_m7_b  : m7_b;
-wire [15:0] cur_c  = i_mode7_enabled ? i_m7_c  : m7_c;
-wire [15:0] cur_d  = i_mode7_enabled ? i_m7_d  : m7_d;
-
-reg [3:0] sample_state;
-reg [23:0] v_sample;
-reg [8:0] ppu_cycle_old;
-wire ppu_cycle_change = (ppu_cycle != ppu_cycle_old);
-
-reg [23:0] u_tile_start, v_tile_start;
+// Mode 7 logic removed (Moved to top-level nes.v for stability)
+assign chr_dout_b = 8'hZ;
 
 always @(posedge clk) begin
-	logic [4:0] tx, ty;
-	logic [2:0] fx, fy;
-	logic [7:0] tid;
-	logic [2:0] bit_idx;
-	if (ce) ppu_cycle_old <= ppu_cycle;
-
-	if (ce && ppu_cycle_change) begin
-		// Frame initialization (V-Blank)
-		if (ppu_scanline == 241 && ppu_cycle == 0) begin
-			u_line <= cur_u0;
-			v_line <= cur_v0;
-		end
-
-		// Scanline transition (At start of h-blank/pre-fetch)
-		if (ppu_cycle == 257) begin
-			u_line <= u_line + $signed({cur_b[15] ? 8'hFF : 8'h00, cur_b});
-			v_line <= v_line + $signed({cur_d[15] ? 8'hFF : 8'h00, cur_d});
-		end
-
-		// Detect start of ANY 8-cycle fetch block
-		// PPU fetches Tiles 1-2 at 321-336, and Tiles 3-34 at 1-256.
-		if (ppu_rendering && ppu_cycle[2:0] == 1) begin
-			// Calculate the X coordinate for this tile
-			// X = 0 for Tile 1, 8 for Tile 2, 16 for Tile 3...
-			logic [8:0] tile_x;
-			tile_x = (ppu_cycle >= 321) ? (ppu_cycle - 321) : (ppu_cycle + 15);
-			
-			// tile_x * A and tile_x * C
-			// We use the u_line (which was already updated for the next line if we are in pre-fetch)
-			u_tile_start <= u_line + $signed(tile_x) * $signed({1'b0, cur_a});
-			v_tile_start <= v_line + $signed(tile_x) * $signed({1'b0, cur_c});
-			
-			sample_state <= 1;
-		end
-	end
-
-	// High-speed sampling burst (Pipelined Map -> Tile -> Pixel)
-	if (sample_state != 0) begin
-		sample_state <= sample_state + 1;
-		
-		// Pipeline for coordinates to match BRAM latency
-		u_pipe[0] <= u_tile_start;
-		v_pipe[0] <= v_tile_start;
-		u_pipe[1] <= u_pipe[0];
-		v_pipe[1] <= v_pipe[0];
-
-		// Pixel N: Stage 1 - Map Address
-		if (sample_state >= 1 && sample_state <= 8) begin
-			v_sample <= {v_tile_start[12:8], u_tile_start[12:8]};
-			// Advance to NEXT pixel coordinate
-			u_tile_start <= u_tile_start + $signed({cur_a[15] ? 8'hFF : 8'h00, cur_a});
-			v_tile_start <= v_tile_start + $signed({cur_c[15] ? 8'hFF : 8'h00, cur_c});
-		end
-
-		// Pixel N: Stage 3 - Read Map (Tile ID) and start Tile Lookup
-		if (sample_state >= 3 && sample_state <= 10) begin
-			tid = map_ram[v_sample[9:0]];
-			tile_addr <= {tid, v_pipe[1][10:8]};
-			u_sample[sample_state-3] <= v_pipe[1][10:8]; // Wait, this should be U-offset!
-			u_sample[sample_state-3] <= u_pipe[1][10:8]; 
-		end
-
-		// Pixel N: Stage 5 - Read Tile Row and extract pixel
-		if (sample_state >= 5 && sample_state <= 12) begin
-			bit_idx = 3'd7 - u_sample[sample_state-5]; 
-			pt0_pack <= {pt0_pack[6:0], row_low[bit_idx]};
-			pt1_pack <= {pt1_pack[6:0], row_high[bit_idx]};
-		end
-
-		if (sample_state == 13) begin
-			pt0_latch <= pt0_pack;
-			pt1_latch <= pt1_pack;
-			sample_state <= 0;
-		end
-	end
-end
-
-// Mode 7 Internal Signals
-reg [2:0] u_sample [7:0];
-
-// Inject data into PPU bus (DETACHED FOR TRANSPARENCY)
-assign chr_dout_b = 8'hZ; // (enable && m7_active && ppu_rendering) ? ...
-
-always @(posedge clk) begin
-	flags_out[0] <= 1'b0; // DETACHED FOR TRANSPARENCY (was m7_active && ppu_rendering)
+	flags_out[0] <= 1'b0; // has_chr_dout
 end
 
 endmodule
-
 
 // mapper 165
 module Mapper165(
