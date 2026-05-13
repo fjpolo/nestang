@@ -224,7 +224,8 @@ module MMC3 (
 	input [15:0] i_m7_a, i_m7_b, i_m7_c, i_m7_d,
 	input [15:0] i_m7_tex_addr,
 	input [7:0]  i_m7_tex_data,
-	input        i_m7_tex_we
+	input        i_m7_tex_we,
+	output [7:0] o_m7_read_data
 );
 
 assign prg_aout_b   = enable ? prg_aout : 22'hZ;
@@ -257,28 +258,54 @@ wire [8:0] ppu_cycle    = ppuflags[10:2];
 wire       ppu_obj_size = ppuflags[1];
 wire       ppu_rendering= ppuflags[0];
 
-// Mode 7 Hardware Map Engine
-// Mode 7 Hardware Map Engine
+// Mode 7 Hardware Map Engine (Explicit Byte-Wide BRAMs)
 // Map RAM: 1024 bytes (32x32 Tile IDs)
-reg [7:0] map_ram [1023:0];
-// Tile RAM: 4096 bytes (256 tiles, 8x8 pixels @ 2bpp)
-reg [1:0] tile_ram [16383:0];
+(* syn_ramstyle = "block_ram" *) reg [7:0] map_ram [1023:0];
+// Tile RAM: Split into two 8-bit blocks (2bpp = 2 bitplanes)
+// Each block is 256 tiles * 8 rows = 2048 bytes.
+(* syn_ramstyle = "block_ram" *) reg [7:0] tile_ram_low [2047:0];
+(* syn_ramstyle = "block_ram" *) reg [7:0] tile_ram_high [2047:0];
 
-// Memory Writing
+// Memory Port A: Shared Write/Read Port (RISC-V or Snooping)
+reg [7:0] snoop_tile_id;
+reg [7:0] m7_read_data;
 always @(posedge clk) begin
 	if (i_m7_tex_we) begin
+		// RISC-V Manual Upload
 		if (i_m7_tex_addr[15]) begin
-			// Tile RAM access (Addr 0x8000+)
-			tile_ram[i_m7_tex_addr[13:0]] <= i_m7_tex_data[1:0];
+			tile_ram_low[i_m7_tex_addr[10:0]]  <= i_m7_tex_data;
+			tile_ram_high[i_m7_tex_addr[10:0]] <= i_m7_tex_data;
 		end else begin
-			// Map RAM access (Addr 0x0000-0x03FF)
 			map_ram[i_m7_tex_addr[9:0]] <= i_m7_tex_data[7:0];
 		end
+	end else if (ce && ppu_rendering) begin
+		// PPU Snooping
+		if (ppu_cycle[2:0] == 1 && chr_ain[13:12] == 2'b10) begin
+			map_ram[chr_ain[9:0]] <= chr_din;
+			snoop_tile_id <= chr_din;
+		end
+		if (chr_ain[13] == 1'b0) begin
+			if (ppu_cycle[2:0] == 5) tile_ram_low[{snoop_tile_id, chr_ain[2:0]}]  <= chr_din;
+			if (ppu_cycle[2:0] == 7) tile_ram_high[{snoop_tile_id, chr_ain[2:0]}] <= chr_din;
+		end
 	end
+	
+	// Readback for RISC-V (Always active when not writing)
+	if (i_m7_tex_addr[15]) m7_read_data <= tile_ram_low[i_m7_tex_addr[10:0]];
+	else m7_read_data <= map_ram[i_m7_tex_addr[9:0]];
 end
 
+assign o_m7_read_data = m7_read_data;
+
 reg [7:0] tile_id;
-reg [13:0] tile_addr;
+reg [10:0] tile_addr;
+reg [7:0] row_low, row_high;
+
+// Memory Port B: Dedicated Read Port (Mode 7 Sampling)
+always @(posedge clk) begin
+	row_low  <= tile_ram_low[tile_addr];
+	row_high <= tile_ram_high[tile_addr];
+end
 
 reg [2:0] bank_select;             // Register to write to next
 reg prg_rom_bank_mode;             // Mode for PRG banking
@@ -603,12 +630,12 @@ wire m7_active = m7_enabled | i_mode7_enabled;
 
 // Fixed point math (16.8)
 reg signed [23:0] u_line, v_line;
-reg signed [23:0] u_acc, v_acc;
+reg [23:0] u_pipe [1:0];
+reg [23:0] v_pipe [1:0];
 reg [7:0] pt0_latch, pt1_latch;
 reg [7:0] pt0_pack, pt1_pack;
 
 // State machine for sampling and coordinate tracking
-wire m7_active = m7_enabled | i_mode7_enabled;
 wire [23:0] cur_u0 = i_mode7_enabled ? i_m7_u0 : m7_u0;
 wire [23:0] cur_v0 = i_mode7_enabled ? i_m7_v0 : m7_v0;
 wire [15:0] cur_a  = i_mode7_enabled ? i_m7_a  : m7_a;
@@ -617,13 +644,17 @@ wire [15:0] cur_c  = i_mode7_enabled ? i_m7_c  : m7_c;
 wire [15:0] cur_d  = i_mode7_enabled ? i_m7_d  : m7_d;
 
 reg [3:0] sample_state;
-reg [23:0] u_sample, v_sample;
+reg [23:0] v_sample;
 reg [8:0] ppu_cycle_old;
 wire ppu_cycle_change = (ppu_cycle != ppu_cycle_old);
 
 reg [23:0] u_tile_start, v_tile_start;
 
 always @(posedge clk) begin
+	logic [4:0] tx, ty;
+	logic [2:0] fx, fy;
+	logic [7:0] tid;
+	logic [2:0] bit_idx;
 	if (ce) ppu_cycle_old <= ppu_cycle;
 
 	if (ce && ppu_cycle_change) begin
@@ -644,7 +675,8 @@ always @(posedge clk) begin
 		if (ppu_rendering && ppu_cycle[2:0] == 1) begin
 			// Calculate the X coordinate for this tile
 			// X = 0 for Tile 1, 8 for Tile 2, 16 for Tile 3...
-			automatic logic [8:0] tile_x = (ppu_cycle >= 321) ? (ppu_cycle - 321) : (ppu_cycle + 15);
+			logic [8:0] tile_x;
+			tile_x = (ppu_cycle >= 321) ? (ppu_cycle - 321) : (ppu_cycle + 15);
 			
 			// tile_x * A and tile_x * C
 			// We use the u_line (which was already updated for the next line if we are in pre-fetch)
@@ -655,36 +687,37 @@ always @(posedge clk) begin
 		end
 	end
 
-	// High-speed sampling burst (Tiled Map Engine: Map -> Tile -> Pixel)
+	// High-speed sampling burst (Pipelined Map -> Tile -> Pixel)
 	if (sample_state != 0) begin
-		if (sample_state <= 8) begin
-			// Stage 1: Map Lookup Address
-			v_sample <= {v_tile_start[12:8], u_tile_start[12:8]}; // Map X,Y (5 bits each)
-			// Also store fine coordinates for Stage 2
-			u_acc <= u_tile_start; // Reusing u_acc for fine coordinate storage
-			v_acc <= v_tile_start; // Reusing v_acc for fine coordinate storage
+		sample_state <= sample_state + 1;
+		
+		// Pipeline for coordinates to match BRAM latency
+		u_pipe[0] <= u_tile_start;
+		v_pipe[0] <= v_tile_start;
+		u_pipe[1] <= u_pipe[0];
+		v_pipe[1] <= v_pipe[0];
+
+		// Pixel N: Stage 1 - Map Address
+		if (sample_state >= 1 && sample_state <= 8) begin
+			v_sample <= {v_tile_start[12:8], u_tile_start[12:8]};
+			// Advance to NEXT pixel coordinate
 			u_tile_start <= u_tile_start + $signed({cur_a[15] ? 8'hFF : 8'h00, cur_a});
 			v_tile_start <= v_tile_start + $signed({cur_c[15] ? 8'hFF : 8'h00, cur_c});
-			sample_state <= sample_state + 1;
-		end else if (sample_state < 13) begin
-			sample_state <= sample_state + 1;
 		end
-		
-		// Stage 2: Map Data (Tile ID) is available
+
+		// Pixel N: Stage 3 - Read Map (Tile ID) and start Tile Lookup
 		if (sample_state >= 3 && sample_state <= 10) begin
-			tile_id <= map_ram[v_sample[9:0]];
+			tid = map_ram[v_sample[9:0]];
+			tile_addr <= {tid, v_pipe[1][10:8]};
+			u_sample[sample_state-3] <= v_pipe[1][10:8]; // Wait, this should be U-offset!
+			u_sample[sample_state-3] <= u_pipe[1][10:8]; 
 		end
 
-		// Stage 3: Tile Data Lookup Address
-		if (sample_state >= 4 && sample_state <= 11) begin
-			// Tile ID (8 bits) + Fine V (3 bits) + Fine U (3 bits) = 14 bits
-			tile_addr <= {tile_id, v_acc[10:8], u_acc[10:8]};
-		end
-
-		// Stage 4: Tile Pixel is available
+		// Pixel N: Stage 5 - Read Tile Row and extract pixel
 		if (sample_state >= 5 && sample_state <= 12) begin
-			pt0_pack <= {pt0_pack[6:0], tile_ram[tile_addr][0]};
-			pt1_pack <= {pt1_pack[6:0], tile_ram[tile_addr][1]};
+			bit_idx = 3'd7 - u_sample[sample_state-5]; 
+			pt0_pack <= {pt0_pack[6:0], row_low[bit_idx]};
+			pt1_pack <= {pt1_pack[6:0], row_high[bit_idx]};
 		end
 
 		if (sample_state == 13) begin
@@ -695,16 +728,14 @@ always @(posedge clk) begin
 	end
 end
 
-// Inject data into PPU bus
-assign chr_dout_b = (enable && m7_active && ppu_rendering) ? (
-	(ppu_cycle[2:1] == 0) ? 8'h00 : // NT
-	(ppu_cycle[2:1] == 1) ? 8'h00 : // AT
-	(ppu_cycle[2:1] == 2) ? pt0_latch : // PT0
-	pt1_latch // PT1
-) : 8'hZ;
+// Mode 7 Internal Signals
+reg [2:0] u_sample [7:0];
+
+// Inject data into PPU bus (DETACHED FOR TRANSPARENCY)
+assign chr_dout_b = 8'hZ; // (enable && m7_active && ppu_rendering) ? ...
 
 always @(posedge clk) begin
-	flags_out[0] <= m7_active && ppu_rendering; // has_chr_dout
+	flags_out[0] <= 1'b0; // DETACHED FOR TRANSPARENCY (was m7_active && ppu_rendering)
 end
 
 endmodule

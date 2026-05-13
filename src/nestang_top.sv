@@ -286,7 +286,8 @@ NES nes(
     .i_m7_d(NES_m7_d),
     .i_m7_tex_addr(NES_m7_tex_addr),
     .i_m7_tex_data(NES_m7_tex_data),
-    .i_m7_tex_we(NES_m7_tex_we)
+    .i_m7_tex_we(NES_m7_tex_we),
+    .o_m7_read_data(NES_m7_read_data)
 );
 
 // loader_write -> clock when data available
@@ -534,7 +535,8 @@ iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang 
     .o_reg_m7_d(NES_m7_d),
     .o_reg_m7_tex_addr(NES_m7_tex_addr),
     .o_reg_m7_tex_data(NES_m7_tex_data),
-    .o_reg_m7_tex_we(NES_m7_tex_we)
+    .o_reg_m7_tex_we(NES_m7_tex_we),
+    .i_reg_m7_tex_data_read(NES_m7_read_data)
 );
 
 // Controller input
@@ -676,6 +678,7 @@ wire [15:0] NES_m7_a, NES_m7_b, NES_m7_c, NES_m7_d;
 wire [15:0] NES_m7_tex_addr;
 wire [7:0] NES_m7_tex_data;
 wire NES_m7_tex_we;
+wire [7:0] NES_m7_read_data;
 
 // assign led[0] = ~NES_cheats_enabled;
 // assign led[1] = ~NES_cheats_loaded;

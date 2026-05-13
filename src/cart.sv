@@ -62,7 +62,8 @@ module cart_top (
 	input [15:0]      i_m7_a, i_m7_b, i_m7_c, i_m7_d,
 	input [15:0]      i_m7_tex_addr,
 	input [7:0]       i_m7_tex_data,
-	input             i_m7_tex_we
+	input             i_m7_tex_we,
+	output [7:0]      o_m7_read_data
 );
 
 tri0 prg_allow_b, vram_a10_b, vram_ce_b, chr_allow_b, irq_b;
@@ -303,7 +304,8 @@ MMC3 mmc3 (
 	.i_m7_d(i_m7_d),
 	.i_m7_tex_addr(i_m7_tex_addr),
 	.i_m7_tex_data(i_m7_tex_data),
-	.i_m7_tex_we(i_m7_tex_we)
+	.i_m7_tex_we(i_m7_tex_we),
+	.o_m7_read_data(o_m7_read_data)
 );
 
 //*****************************************************************************//

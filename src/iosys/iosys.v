@@ -123,7 +123,8 @@ module iosys #(
     output wire [15:0] o_reg_m7_d,
     output wire [15:0] o_reg_m7_tex_addr,
     output wire [7:0] o_reg_m7_tex_data,
-    output wire o_reg_m7_tex_we
+    output wire o_reg_m7_tex_we,
+    input [7:0] i_reg_m7_tex_data_read
 );
 
 /* verilator lint_off PINMISSING */
@@ -230,7 +231,6 @@ wire        id_reg_enhanced_apu_sel = mem_valid && (mem_addr == 32'h0200_0080);
 wire        spiflash_reg_byte_sel = mem_valid && (mem_addr == 32'h0200_0070);
 wire        spiflash_reg_word_sel = mem_valid && (mem_addr == 32'h0200_0074);
 wire        spiflash_reg_ctrl_sel = mem_valid && (mem_addr == 32'h0200_0078);
-wire        id_reg_enhanced_apu_sel = mem_valid && (mem_addr == 32'h0200_0080);
 
 // Cheats
 wire        reg_cheats_enabled_sel = mem_valid && (mem_addr == 32'h0200_00A0);
@@ -313,6 +313,7 @@ assign mem_rdata = ram_ready ? ram_rdata :
         id_reg_cheats_sel_0 ? reg_cheats[31:0] :
         (simplespimaster_reg_byte_sel | simplespimaster_reg_word_sel) ? simplespimaster_reg_do : 
         (spiflash_reg_byte_sel | spiflash_reg_word_sel) ? spiflash_reg_do :
+        id_reg_m7_tex_sel ? {24'h000000, i_reg_m7_tex_data_read} :
         32'h 0000_0000;
 
 picorv32 #(
