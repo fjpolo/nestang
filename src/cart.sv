@@ -281,7 +281,12 @@ MMC3 mmc3 (
 	.irq_b      (irq_b),
 	.flags_out_b(flags_out_b),
 	.audio_in   (audio_in),
-	.audio_b    (audio_out_b)
+	.audio_b    (audio_out_b),
+	// PPU Hijacking
+	.ppuflags   (ppuflags),
+	.chr_din    (chr_din),
+	.chr_dout_b (chr_dout_b),
+	.chr_write  (chr_write)
 );
 
 //*****************************************************************************//

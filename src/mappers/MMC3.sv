@@ -213,7 +213,12 @@ module MMC3 (
 	inout        irq_b,       // IRQ
 	input [15:0] audio_in,    // Inverted audio from APU
 	inout [15:0] audio_b,     // Mixed audio output
-	inout [15:0] flags_out_b  // flags {0, 0, 0, 0, 0, prg_conflict, prg_bus_write, has_chr_dout}
+	inout [15:0] flags_out_b, // flags {0, 0, 0, 0, 0, prg_conflict, prg_bus_write, has_chr_dout}
+	// PPU Hijacking / Mode 7 ports
+	input [19:0] ppuflags,
+	input [7:0]  chr_din,
+	inout [7:0]  chr_dout_b,
+	input        chr_write
 );
 
 assign prg_aout_b   = enable ? prg_aout : 22'hZ;
@@ -235,6 +240,17 @@ wire vram_a10;
 wire vram_ce;
 wire irq;
 reg [15:0] flags_out = 0;
+
+// Mode 7 Registers
+reg        m7_enabled = 0;
+reg [15:0] m7_a, m7_b, m7_c, m7_d;
+reg [15:0] m7_x0, m7_y0;
+reg [15:0] m7_scx, m7_scy;
+
+wire [8:0] ppu_scanline = ppuflags[19:11];
+wire [8:0] ppu_cycle    = ppuflags[10:2];
+wire       ppu_obj_size = ppuflags[1];
+wire       ppu_rendering= ppuflags[0];
 
 reg [2:0] bank_select;             // Register to write to next
 reg prg_rom_bank_mode;             // Mode for PRG banking
@@ -308,6 +324,15 @@ if (~enable) begin
 	a12_ctr <= 0;
 	last_a12 <= 0;
 	mapper37_multicart <= 3'b000;
+	m7_enabled <= 0;
+	m7_a <= 16'h0100; // Unity scale
+	m7_b <= 16'h0000;
+	m7_c <= 16'h0000;
+	m7_d <= 16'h0100; // Unity scale
+	m7_x0 <= 16'h0000;
+	m7_y0 <= 16'h0000;
+	m7_scx <= 16'h0000;
+	m7_scy <= 16'h0000;
 end else if (ce) begin
 	irq_reg[4:1] <= irq_reg[3:0]; // 4 cycle delay
 	if (!regs_7e && prg_write && prg_ain[15]) begin
@@ -380,6 +405,25 @@ end else if (ce) begin
 			mirroring <= !prg_din[6];
 		if (DxROM || mapper76 || mapper88)
 			mirroring <= flags[14]; // Hard-wired mirroring
+	end
+	else if (prg_write && prg_ain[15:4] == 12'h500) begin
+		// Mode 7 register writes at $5000-$500F
+		case (prg_ain[3:0])
+			4'h0: m7_enabled <= prg_din[0];
+			4'h1: m7_a[7:0]   <= prg_din;
+			4'h2: m7_a[15:8]  <= prg_din;
+			4'h3: m7_b[7:0]   <= prg_din;
+			4'h4: m7_b[15:8]  <= prg_din;
+			4'h5: m7_c[7:0]   <= prg_din;
+			4'h6: m7_c[15:8]  <= prg_din;
+			4'h7: m7_d[7:0]   <= prg_din;
+			4'h8: m7_d[15:8]  <= prg_din;
+			4'h9: m7_x0[7:0]  <= prg_din;
+			4'hA: m7_x0[15:8] <= prg_din;
+			4'hB: m7_y0[7:0]  <= prg_din;
+			4'hC: m7_y0[15:8] <= prg_din;
+			default: ;
+		endcase
 	end
 	else if (regs_7e && prg_write && prg_ain[15:4]==12'h7EF) begin
 		casez({prg_ain[3:0], mapper82})
@@ -525,6 +569,12 @@ assign vram_a10 = TxSROM ? chrsel[7] :              // TxSROM do not support mir
 					mapper207 ? chrsel[7] :         // mapper207 does not support mirroring
 					(mirroring ? chr_ain[10] : chr_ain[11]);
 assign vram_ce = chr_ain[13] && !four_screen_mirroring;
+
+// Mode 7 Hijack Bypass logic
+assign chr_dout_b = (enable && m7_enabled && ppu_rendering) ? 8'h00 : 8'hZ; // Placeholder for now
+always @(posedge clk) begin
+	flags_out[0] <= m7_enabled && ppu_rendering; // has_chr_dout
+end
 
 endmodule
 
