@@ -122,7 +122,7 @@ module NES(
 	// Enhanced APU
 	input 		  i_APU_enhancements_ce,
 	input		  i_APU_mapper_saturates,
-	input         i_mode7_enabled,
+	input [1:0]   i_mode7_enabled,
 	input [23:0]  i_m7_u0, i_m7_v0,
 	input [15:0]  i_m7_a, i_m7_b, i_m7_c, i_m7_d,
 	input [15:0]  i_m7_tex_addr,
@@ -544,20 +544,25 @@ CODES codes (
 /*************       Bus Arbitration        ***************/
 /**********************************************************/
 
-// Mode 7 / Checkerboard Universal Hijack
-// We apply the effect directly at the bus level for zero latency
-wire [7:0] checker_mask = scanline[0] ? 8'h55 : 8'hAA;
-// Pattern Table reads are always address < 0x2000 (chr_addr[13] == 0)
-wire is_m7_hijack = i_mode7_enabled && !chr_addr[13];
+// Mode 7 / XY-Flip Universal Hijack
+// Bit 0: Horizontal Flip (X)
+// Bit 1: Vertical Flip (Y)
+wire [7:0] x_mirrored_pixels = {ppumem_din[0], ppumem_din[1], ppumem_din[2], ppumem_din[3], 
+                                ppumem_din[4], ppumem_din[5], ppumem_din[6], ppumem_din[7]};
 
-assign chr_to_ppu = is_m7_hijack ? (ppumem_din & checker_mask) : 
-                    (has_chr_from_ppu_mapper ? chr_from_ppu_mapper : ppumem_din);
+// Pattern Table reads are always address < 0x2000 (chr_addr[13] == 0)
+wire is_m7_hijack = i_mode7_enabled[0] || i_mode7_enabled[1];
+wire is_tile_fetch = !chr_addr[13];
+
+assign chr_to_ppu = (i_mode7_enabled[0] && is_tile_fetch) ? x_mirrored_pixels : 
+                    ((has_chr_from_ppu_mapper && !is_m7_hijack) ? chr_from_ppu_mapper : ppumem_din);
+
+assign ppumem_addr = (i_mode7_enabled[1] && is_tile_fetch) ? {chr_linaddr[21:3], ~chr_linaddr[2:0]} : chr_linaddr;
 
 assign cpumem_addr  = prg_linaddr;
 assign cpumem_read  = (prg_read & prg_allow) | (prg_write && prg_conflict);
 assign cpumem_write = prg_write && prg_allow;
 assign cpumem_dout  = prg_din;
-assign ppumem_addr  = chr_linaddr;
 assign ppumem_read  = chr_read;
 assign ppumem_write = chr_write && (chr_allow || vram_ce);
 assign ppumem_dout  = chr_from_ppu;
