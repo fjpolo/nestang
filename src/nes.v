@@ -548,7 +548,7 @@ CODES codes (
 // We apply the effect directly at the bus level for zero latency
 wire [7:0] checker_mask = scanline[0] ? 8'h55 : 8'hAA;
 // Pattern Table reads are always address < 0x2000 (chr_addr[13] == 0)
-wire is_m7_hijack = i_mode7_enabled && !chr_addr[13] && (scanline >= 8 && scanline < 232);
+wire is_m7_hijack = i_mode7_enabled && !chr_addr[13];
 
 assign chr_to_ppu = is_m7_hijack ? (ppumem_din & checker_mask) : 
                     (has_chr_from_ppu_mapper ? chr_from_ppu_mapper : ppumem_din);
