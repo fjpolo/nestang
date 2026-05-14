@@ -477,6 +477,12 @@ always @(posedge clk) begin            // RV
 end
 reg NES_enhanced_APU;
 reg [7:0] NES_mapper;
+wire [3:0] NES_mode7_enabled;
+wire [23:0] NES_m7_u0, NES_m7_v0;
+wire [15:0] NES_m7_a, NES_m7_b, NES_m7_c, NES_m7_d;
+wire [15:0] NES_m7_tex_addr;
+wire [7:0] NES_m7_tex_data, NES_m7_read_data;
+wire NES_m7_tex_we;
 iosys #(.COLOR_LOGO(15'b01100_00000_01000), .CORE_ID(1) )     // purple nestang logo
     iosys (
     .clk(clk), .hclk(hclk), .resetn(sys_resetn),
@@ -672,7 +678,6 @@ cheat_wizard(
 reg NES_aspect_ratio;
 initial NES_aspect_ratio = 1'b0;
 // Mode 7
-wire NES_mode7_enabled;
 wire [23:0] NES_m7_u0, NES_m7_v0;
 wire [15:0] NES_m7_a, NES_m7_b, NES_m7_c, NES_m7_d;
 wire [15:0] NES_m7_tex_addr;

@@ -122,7 +122,7 @@ module NES(
 	// Enhanced APU
 	input 		  i_APU_enhancements_ce,
 	input		  i_APU_mapper_saturates,
-	input [1:0]   i_mode7_enabled,
+	input [3:0]   i_mode7_enabled,
 	input [23:0]  i_m7_u0, i_m7_v0,
 	input [15:0]  i_m7_a, i_m7_b, i_m7_c, i_m7_d,
 	input [15:0]  i_m7_tex_addr,
@@ -544,20 +544,50 @@ CODES codes (
 /*************       Bus Arbitration        ***************/
 /**********************************************************/
 
-// Mode 7 / XY-Flip Universal Hijack
-// Bit 0: Horizontal Flip (X)
-// Bit 1: Vertical Flip (Y)
+// Mode 7 / 4-Axis Universal Hijack
+// Bit 0: Tile X-Flip (Internal pixels)
+// Bit 1: Tile Y-Flip (Internal rows)
+// Bit 2: Screen X-Flip (Map columns)
+// Bit 3: Screen Y-Flip (Map rows)
+
+wire is_tile_fetch = !chr_addr[13];
+wire is_nt_fetch   = chr_addr[13] && ppu_cycle[2:1] == 0; // Cycles 0-1 of a fetch are Name Table
+wire is_at_fetch   = chr_addr[13] && ppu_cycle[2:1] == 1; // Cycles 2-3 of a fetch are Attribute Table
+
+// Detect sprite fetches (Cycles 256-319 of the scanline)
+wire is_sprite_fetch = ppu_cycle[8] && !ppu_cycle[6]; 
+
 wire [7:0] x_mirrored_pixels = {ppumem_din[0], ppumem_din[1], ppumem_din[2], ppumem_din[3], 
                                 ppumem_din[4], ppumem_din[5], ppumem_din[6], ppumem_din[7]};
 
-// Pattern Table reads are always address < 0x2000 (chr_addr[13] == 0)
-wire is_m7_hijack = i_mode7_enabled[0] || i_mode7_enabled[1];
-wire is_tile_fetch = !chr_addr[13];
+// Attribute bit-pair swapping for correct colors when flipping
+// [1:0] TL, [3:2] TR, [5:4] BL, [7:6] BR
+wire [7:0] at_horiz_flipped = {ppumem_din[5:4], ppumem_din[7:6], ppumem_din[1:0], ppumem_din[3:2]};
+wire [7:0] at_vert_flipped  = {ppumem_din[3:2], ppumem_din[1:0], ppumem_din[7:6], ppumem_din[5:4]};
+wire [7:0] at_both_flipped  = {ppumem_din[1:0], ppumem_din[3:2], ppumem_din[5:4], ppumem_din[7:6]};
 
-assign chr_to_ppu = (i_mode7_enabled[0] && is_tile_fetch) ? x_mirrored_pixels : 
-                    ((has_chr_from_ppu_mapper && !is_m7_hijack) ? chr_from_ppu_mapper : ppumem_din);
+wire [7:0] m7_at_data = (i_mode7_enabled[2] && i_mode7_enabled[3]) ? at_both_flipped :
+                        (i_mode7_enabled[2]) ? at_horiz_flipped :
+                        (i_mode7_enabled[3]) ? at_vert_flipped  : ppumem_din;
 
-assign ppumem_addr = (i_mode7_enabled[1] && is_tile_fetch) ? {chr_linaddr[21:3], ~chr_linaddr[2:0]} : chr_linaddr;
+assign chr_to_ppu = (i_mode7_enabled[0] && is_tile_fetch && !is_sprite_fetch) ? x_mirrored_pixels : 
+                    (is_at_fetch && (i_mode7_enabled[2] || i_mode7_enabled[3])) ? m7_at_data :
+                    ((has_chr_from_ppu_mapper && !(|i_mode7_enabled)) ? chr_from_ppu_mapper : ppumem_din);
+
+// Complex Address Mux for X/Y Screen Flipping
+// Bit 1: Tile Y-Flip (Vertical flip of rows within a tile)
+wire [21:0] m7_addr_step1 = (i_mode7_enabled[1] && is_tile_fetch && !is_sprite_fetch && !ppumem_write) ? {chr_linaddr[21:3], ~chr_linaddr[2:0]} : chr_linaddr;
+
+// Bit 2: Screen X-Flip (Horizontal flip of tiles in the map)
+wire [21:0] m7_addr_step2 = (i_mode7_enabled[2] && is_nt_fetch && !ppumem_write) ? {m7_addr_step1[21:5], ~m7_addr_step1[4:0]} :
+                            (i_mode7_enabled[2] && is_at_fetch && !ppumem_write) ? {m7_addr_step1[21:3], ~m7_addr_step1[2:0]} : m7_addr_step1;
+
+// Bit 3: Screen Y-Flip (Vertical flip of tiles in the map)
+// DEPRECATED/DISABLED: Vertical scrolling on NES has a 30-row limit that causes shredding.
+// We only support Tile-level Y-Flip now.
+wire [21:0] m7_addr_step3 = m7_addr_step2;
+
+assign ppumem_addr = m7_addr_step3;
 
 assign cpumem_addr  = prg_linaddr;
 assign cpumem_read  = (prg_read & prg_allow) | (prg_write && prg_conflict);

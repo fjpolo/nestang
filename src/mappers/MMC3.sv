@@ -219,7 +219,7 @@ module MMC3 (
 	input [7:0]  chr_din,
 	inout [7:0]  chr_dout_b,
 	input        chr_write,
-	input        i_mode7_enabled,
+	input [3:0]  i_mode7_enabled,
 	input [23:0] i_m7_u0, i_m7_v0,
 	input [15:0] i_m7_a, i_m7_b, i_m7_c, i_m7_d,
 	input [15:0] i_m7_tex_addr,

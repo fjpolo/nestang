@@ -114,7 +114,7 @@ module iosys #(
     // Aspect Ratio
     output wire o_reg_aspect_ratio,
     // Mode 7
-    output wire o_reg_mode7_enabled,
+    output wire [3:0] o_reg_mode7_enabled,
     output wire [23:0] o_reg_m7_u0,
     output wire [23:0] o_reg_m7_v0,
     output wire [15:0] o_reg_m7_a,
@@ -300,7 +300,7 @@ assign mem_rdata = ram_ready ? ram_rdata :
         id_reg_aspect_ratio ? {31'b000_0000_0000_0000, reg_aspect_ratio} :
         id_reg_timer_interrupts ? {reg_timer_interrupts} :
         id_reg_timer0_load_value ? {reg_timer0_load_value} :
-        id_reg_mode7_enabled_sel ? {31'b0, reg_mode7_enabled} :
+        id_reg_mode7_enabled_sel ? {28'b0, reg_mode7_enabled} :
         id_reg_m7_u0_sel ? {8'h00, reg_m7_u0} :
         id_reg_m7_v0_sel ? {8'h00, reg_m7_v0} :
         id_reg_m7_a_sel ? {16'h0000, reg_m7_a} :
@@ -666,13 +666,13 @@ always @(posedge clk)
     else
         timer0_counter <= 32'h0;
 // Mode 7
-reg reg_mode7_enabled;
-initial reg_mode7_enabled = 1'b0;
+reg [3:0] reg_mode7_enabled;
+initial reg_mode7_enabled = 4'b0;
 always @(posedge clk) begin
     if (~resetn)
-        reg_mode7_enabled <= 1'b0;
+        reg_mode7_enabled <= 4'b0;
     else if (id_reg_mode7_enabled_sel && mem_wstrb[0])
-        reg_mode7_enabled <= mem_wdata[0];
+        reg_mode7_enabled <= mem_wdata[3:0];
 end
 assign o_reg_mode7_enabled = reg_mode7_enabled;
 
